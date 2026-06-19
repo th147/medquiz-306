@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>西医综合306 · 智能刷题平台</title>
+<style>
+/* ── Ocean Depths Medical Theme ── */
+:root {
+  --navy: #1a2332;
+  --teal: #2d8b8b;
+  --seafoam: #a8dadc;
+  --cream: #f1faee;
+  --white: #ffffff;
+  --text: #1e2d3d;
+  --text-light: #5a6c7d;
+  --bg: #eef2f6;
+  --card: #ffffff;
+  --border: #dce3ea;
+  --red: #c0392b;
+  --red-bg: #fdecea;
+  --green: #1d8a4e;
+  --green-bg: #e8f5e9;
+  --orange: #d4780a;
+  --orange-bg: #fff8e1;
+  --blue: #1a6b8a;
+  --blue-bg: #e3f2fd;
+  --shadow: 0 2px 16px rgba(26,35,50,.06);
+  --shadow-lg: 0 8px 40px rgba(26,35,50,.10);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --transition: 0.2s cubic-bezier(.4,0,.2,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.hidden{display:none!important}
+
+/* ── Toast ── */
+.toast{
+  position:fixed;top:24px;left:50%;transform:translateX(-50%);
+  background:var(--navy);color:var(--cream);
+  padding:12px 28px;border-radius:24px;font-size:14px;
+  z-index:9999;box-shadow:var(--shadow-lg);
+  animation:toastIn .3s ease;
+}
+.toast.error{background:var(--red)}
+.toast.success{background:var(--green)}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+/* ── Auth Page ── */
+.auth-page{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;padding:20px;
+  background: linear-gradient(135deg, var(--navy) 0%, #1a3a4a 50%, var(--teal) 100%);
+  position:relative;overflow:hidden;
+}
+.auth-page::before{
+  content:'';position:absolute;inset:0;
+  background: radial-gradient(ellipse at 20% 50%, rgba(168,218,220,.08) 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 20%, rgba(45,139,139,.06) 0%, transparent 50%);
+}
+.auth-card{
+  position:relative;z-index:1;
+  background:var(--white);border-radius:20px;
+  padding:40px 36px;width:100%;max-width:420px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+.auth-card .logo-icon{
+  width:56px;height:56px;margin:0 auto 12px;
+  display:flex;align-items:center;justify-content:center;
+}
+.auth-card .logo-icon svg{width:48px;height:48px}
+.auth-card h2{font-size:22px;color:var(--navy);text-align:center;margin-bottom:4px;font-weight:700}
+.auth-card .subtitle{font-size:14px;color:var(--text-light);text-align:center;margin-bottom:28px}
+.auth-card .field{margin-bottom:16px}
+.auth-card .field label{display:block;font-size:13px;color:var(--text-light);margin-bottom:6px;font-weight:500}
+.auth-card .field input{
+  width:100%;padding:12px 16px;border:1.5px solid var(--border);
+  border-radius:var(--radius-sm);font-size:15px;font-family:inherit;
+  transition:var(--transition);background:var(--bg);
+}
+.auth-card .field input:focus{outline:none;border-color:var(--teal);background:var(--white);box-shadow:0 0 0 3px rgba(45,139,139,.1)}
+.auth-card .btn{
+  width:100%;padding:13px;border-radius:var(--radius-sm);
+  font-size:16px;font-weight:600;border:none;cursor:pointer;
+  transition:var(--transition);font-family:inherit;margin-top:8px;
+}
+.auth-card .btn-primary{background:var(--teal);color:var(--white)}
+.auth-card .btn-primary:hover{background:#247a7a;transform:translateY(-1px);box-shadow:0 4px 16px rgba(45,139,139,.3)}
+.auth-card .btn-outline{background:transparent;color:var(--teal);border:1.5px solid var(--teal)}
+.auth-card .btn-outline:hover{background:rgba(45,139,139,.05)}
+.auth-card .switch-text{text-align:center;margin-top:16px;font-size:13px;color:var(--text-light)}
+.auth-card .switch-text a{color:var(--teal);cursor:pointer;font-weight:600;text-decoration:none}
+.auth-card .switch-text a:hover{text-decoration:underline}
+
+/* ── App Shell ── */
+.app-shell{display:flex;flex-direction:column;min-height:100vh}
+.topbar{
+  background:var(--navy);color:var(--cream);
+  padding:0 20px;height:56px;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 12px rgba(0,0,0,.15);
+}
+.topbar .brand{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700;letter-spacing:.5px}
+.topbar .brand svg{width:28px;height:28px}
+.topbar .user-area{display:flex;align-items:center;gap:12px;font-size:13px}
+.topbar .user-area .avatar{
+  width:32px;height:32px;border-radius:50%;background:var(--teal);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:600;color:var(--white);
+}
+.topbar .btn-logout{background:rgba(255,255,255,.1);color:var(--cream);border:1px solid rgba(255,255,255,.2);padding:6px 14px;border-radius:16px;font-size:12px;cursor:pointer;transition:var(--transition);font-family:inherit}
+.topbar .btn-logout:hover{background:rgba(255,255,255,.2)}
+
+/* ── Tab Nav ── */
+.tab-nav{
+  display:flex;background:var(--white);border-bottom:1px solid var(--border);
+  position:sticky;top:56px;z-index:99;overflow-x:auto;
+  box-shadow:0 1px 4px rgba(0,0,0,.03);
+}
+.tab-nav button{
+  flex:1;min-width:80px;padding:14px 12px;border:none;background:none;
+  font-size:14px;color:var(--text-light);cursor:pointer;white-space:nowrap;
+  border-bottom:3px solid transparent;transition:var(--transition);
+  font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.tab-nav button svg{width:18px;height:18px;opacity:.6}
+.tab-nav button.active{color:var(--teal);border-bottom-color:var(--teal);font-weight:600}
+.tab-nav button.active svg{opacity:1}
+
+/* ── Main Content ── */
+.main-content{padding:20px;max-width:960px;margin:0 auto;width:100%;padding-bottom:40px}
+
+/* ── Cards ── */
+.card{
+  background:var(--card);border-radius:var(--radius);
+  padding:24px;box-shadow:var(--shadow);margin-bottom:16px;
+  transition:var(--transition);
+}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.card-header h2{font-size:17px;color:var(--navy);display:flex;align-items:center;gap:8px;font-weight:700}
+.card-header h2 svg{width:20px;height:20px}
+.badge{font-size:11px;padding:4px 10px;border-radius:12px;font-weight:600;letter-spacing:.3px}
+.badge-teal{background:var(--teal);color:var(--white)}
+.badge-red{background:var(--red);color:var(--white)}
+.badge-blue{background:var(--blue);color:var(--white)}
+
+/* ── Stats Row ── */
+.stat-row{display:flex;gap:12px;flex-wrap:wrap}
+.stat-box{
+  flex:1;min-width:100px;background:var(--bg);
+  border-radius:var(--radius-sm);padding:16px;text-align:center;
+}
+.stat-box .num{font-size:30px;font-weight:700;color:var(--navy)}
+.stat-box .lbl{font-size:12px;color:var(--text-light);margin-top:4px}
+.stat-box.accent .num{color:var(--teal)}
+.stat-box.warn .num{color:var(--orange)}
+.stat-box.danger .num{color:var(--red)}
+
+/* ── Buttons ── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:10px 20px;border-radius:20px;font-size:14px;
+  font-weight:600;border:none;cursor:pointer;transition:var(--transition);
+  font-family:inherit;white-space:nowrap;
+}
+.btn svg{width:16px;height:16px}
+.btn-teal{background:var(--teal);color:var(--white)}
+.btn-teal:hover{background:#247a7a;box-shadow:0 4px 12px rgba(45,139,139,.25)}
+.btn-outline{background:var(--white);color:var(--teal);border:1.5px solid var(--teal)}
+.btn-outline:hover{background:rgba(45,139,139,.05)}
+.btn-red{background:var(--red);color:var(--white)}
+.btn-red:hover{background:#a93226}
+.btn-sm{padding:6px 14px;font-size:12px;border-radius:14px}
+.btn-lg{padding:14px 28px;font-size:16px;border-radius:24px}
+.btn-block{width:100%;justify-content:center}
+
+/* ── Chapter Tags ── */
+.chip-group{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chip{
+  padding:7px 16px;border-radius:18px;font-size:13px;cursor:pointer;
+  border:1.5px solid var(--border);background:var(--white);
+  transition:var(--transition);font-family:inherit;color:var(--text-light);
+}
+.chip:hover{border-color:var(--teal);color:var(--teal)}
+.chip.active{background:var(--teal);color:var(--white);border-color:var(--teal)}
+
+/* ── Question List ── */
+.q-list{border-radius:var(--radius-sm);overflow:hidden}
+.q-item{
+  display:flex;align-items:center;padding:14px 16px;gap:12px;
+  border-bottom:1px solid var(--border);cursor:pointer;
+  transition:var(--transition);background:var(--white);
+}
+.q-item:last-child{border-bottom:none}
+.q-item:hover{background:var(--bg)}
+.q-no{
+  width:34px;height:34px;border-radius:50%;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;flex-shrink:0;color:var(--text-light);
+}
+.q-no.done{background:var(--green-bg);color:var(--green)}
+.q-no.wrong{background:var(--red-bg);color:var(--red)}
+.q-info{flex:1;min-width:0}
+.q-info .q-title{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-info .q-meta{font-size:12px;color:var(--text-light);margin-top:2px}
+.q-status{
+  font-size:11px;padding:4px 10px;border-radius:10px;font-weight:600;flex-shrink:0;
+}
+.q-status.mastered{background:var(--green-bg);color:var(--green)}
+.q-status.uncertain{background:var(--orange-bg);color:var(--orange)}
+.q-status.not-know{background:var(--red-bg);color:var(--red)}
+.q-status.untouched{background:var(--bg);color:var(--text-light)}
+
+/* ── Quiz ── */
+.quiz-progress{
+  display:flex;align-items:center;gap:8px;margin-bottom:20px;
+  font-size:13px;color:var(--text-light);
+}
+.quiz-progress .bar{
+  flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;
+}
+.quiz-progress .bar-fill{height:100%;background:var(--teal);border-radius:3px;transition:width .3s}
+.quiz-question{
+  font-size:16px;font-weight:600;line-height:1.8;margin-bottom:20px;
+  color:var(--navy);
+}
+.quiz-option{
+  display:block;width:100%;text-align:left;padding:15px 18px;margin-bottom:8px;
+  border:2px solid var(--border);border-radius:var(--radius-sm);background:var(--white);
+  font-size:15px;cursor:pointer;transition:var(--transition);font-family:inherit;
+  position:relative;
+}
+.quiz-option:hover{border-color:var(--teal);background:#f5faf9}
+.quiz-option.selected{border-color:var(--teal);background:#eaf5f4;font-weight:600}
+.quiz-option.correct{border-color:var(--green);background:var(--green-bg)}
+.quiz-option.wrong{border-color:var(--red);background:var(--red-bg)}
+.quiz-option.reveal{border-color:var(--green);background:#f6fdf7}
+.quiz-option .opt-letter{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:50%;background:var(--bg);
+  margin-right:10px;font-size:13px;font-weight:700;color:var(--text-light);
+  flex-shrink:0;
+}
+.quiz-option.selected .opt-letter{background:var(--teal);color:var(--white)}
+.quiz-option.correct .opt-letter{background:var(--green);color:var(--white)}
+.quiz-option.wrong .opt-letter{background:var(--red);color:var(--white)}
+
+/* ── Explanation ── */
+.explanation-box{
+  margin-top:16px;padding:16px;border-radius:var(--radius-sm);
+  background:var(--blue-bg);border-left:4px solid var(--blue);
+}
+.explanation-box .answer-line{font-weight:700;font-size:14px;color:var(--blue);margin-bottom:8px}
+.explanation-box .explanation-text{font-size:14px;line-height:1.8;color:var(--text)}
+
+/* ── Video ── */
+.video-box{
+  margin-top:12px;padding:16px;border-radius:var(--radius-sm);
+  background:var(--bg);border:1.5px dashed var(--border);
+  text-align:center;font-size:14px;color:var(--text-light);cursor:pointer;
+  transition:var(--transition);display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.video-box:hover{border-color:var(--teal);color:var(--teal);background:#f5faf9}
+.video-box.has-video{border-style:solid;border-color:var(--teal);background:var(--blue-bg);color:var(--teal)}
+.video-box svg{width:20px;height:20px}
+
+/* ── Assessment ── */
+.assess-section{margin-top:16px}
+.assess-section .assess-hint{font-size:13px;color:var(--text-light);margin-bottom:8px}
+.assess-row{display:flex;gap:10px}
+.assess-btn{
+  flex:1;padding:13px 10px;border:2px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--white);font-size:14px;cursor:pointer;text-align:center;
+  transition:var(--transition);font-family:inherit;font-weight:500;
+}
+.assess-btn:hover{transform:translateY(-1px)}
+.assess-btn.mastered{border-color:var(--green);color:var(--green)}
+.assess-btn.mastered.active,.assess-btn.mastered:hover{background:var(--green-bg);font-weight:700}
+.assess-btn.uncertain{border-color:var(--orange);color:var(--orange)}
+.assess-btn.uncertain.active,.assess-btn.uncertain:hover{background:var(--orange-bg);font-weight:700}
+.assess-btn.not-know{border-color:var(--red);color:var(--red)}
+.assess-btn.not-know.active,.assess-btn.not-know:hover{background:var(--red-bg);font-weight:700}
+
+/* ── Chapter Stats ── */
+.chapter-stat{
+  padding:14px 0;border-bottom:1px solid var(--border);
+}
+.chapter-stat:last-child{border-bottom:none}
+.chapter-stat .cs-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.chapter-stat .cs-name{font-weight:600;font-size:14px;color:var(--navy)}
+.chapter-stat .cs-meta{font-size:12px;color:var(--text-light)}
+.chapter-stat .cs-bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.chapter-stat .cs-bar-fill{height:100%;background:var(--teal);border-radius:3px;transition:width .4s}
+.chapter-stat .cs-warn{margin-top:6px;font-size:13px;color:var(--orange)}
+
+/* ── Empty State ── */
+.empty-state{text-align:center;padding:48px 20px;color:var(--text-light)}
+.empty-state svg{width:64px;height:64px;margin-bottom:16px;opacity:.4}
+.empty-state .empty-title{font-size:16px;font-weight:600;margin-bottom:6px;color:var(--text)}
+.empty-state .empty-desc{font-size:13px}
+
+/* ── Modal ── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:16px;
+  animation:fadeIn .2s;
+}
+.modal{
+  background:var(--white);border-radius:var(--radius);padding:28px 24px;
+  max-width:520px;width:100%;box-shadow:var(--shadow-lg);max-height:90vh;overflow-y:auto;
+}
+.modal h3{font-size:18px;color:var(--navy);margin-bottom:16px;font-weight:700}
+.modal label{display:block;font-size:13px;color:var(--text-light);margin:10px 0 4px;font-weight:500}
+.modal input,.modal textarea,.modal select{
+  width:100%;padding:10px 14px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:14px;font-family:inherit;resize:vertical;
+  transition:var(--transition);background:var(--bg);
+}
+.modal input:focus,.modal textarea:focus,.modal select:focus{outline:none;border-color:var(--teal);background:var(--white)}
+.modal textarea{min-height:100px}
+.modal .btn-row{display:flex;gap:10px;margin-top:18px;justify-content:flex-end}
+
+/* ── Admin Table ── */
+.admin-table{width:100%;border-collapse:collapse;font-size:13px}
+.admin-table th,.admin-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.admin-table th{font-weight:600;color:var(--text-light);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+.admin-table .code{font-family:'SF Mono','Fira Code',monospace;font-size:13px;background:var(--bg);padding:3px 8px;border-radius:4px}
+.admin-table .used{color:var(--green);font-weight:600}
+.admin-table .unused{color:var(--text-light)}
+
+/* ── Responsive ── */
+@media(min-width:768px){
+  .main-content{padding:28px;padding-bottom:48px}
+  .tab-nav button{font-size:15px;padding:16px}
+  .stat-box .num{font-size:36px}
+  .quiz-question{font-size:17px}
+}
+@media(max-width:480px){
+  .auth-card{padding:28px 20px}
+  .card{padding:18px}
+  .assess-row{flex-direction:column}
+  .stat-row{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div id="toast" class="toast hidden"></div>
+
+<!-- ── Auth Page ── -->
+<div id="authPage" class="auth-page">
+  <div class="auth-card" id="authCard">
+    <div class="logo-icon">
+      <svg viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#1a2332"/><path d="M14 24c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10" stroke="#a8dadc" stroke-width="2.5" stroke-linecap="round"/><circle cx="24" cy="24" r="4" fill="#2d8b8b"/><path d="M24 34v4M20 38h8" stroke="#a8dadc" stroke-width="2" stroke-linecap="round"/></svg>
+    </div>
+    <h2 id="authTitle">西医综合 306 智能刷题</h2>
+    <p class="subtitle" id="authSubtitle">登录你的账号开始学习</p>
+
+    <div class="field" id="nicknameField" style="display:none">
+      <label>昵称</label>
+      <input id="regNickname" type="text" placeholder="你的昵称" maxlength="20" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>用户名</label>
+      <input id="authUsername" type="text" placeholder="请输入用户名" maxlength="20" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>密码</label>
+      <input id="authPassword" type="password" placeholder="请输入密码" maxlength="32">
+    </div>
+    <div class="field" id="codeField" style="display:none">
+      <label>激活码</label>
+      <input id="authCode" type="text" placeholder="请输入激活码" maxlength="16" autocomplete="off">
+    </div>
+
+    <button class="btn btn-primary" id="authBtn" onclick="handleAuth()">登 录</button>
+    <div class="switch-text">
+      <span id="switchLabel">还没有账号？</span>
+      <a id="switchLink" onclick="toggleAuthMode()">注册新账号</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── App Shell ── -->
+<div id="appShell" class="app-shell hidden">
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="7" fill="#2d8b8b"/><path d="M7 14c0-3.9 3.1-7 7-7s7 3.1 7 7-3.1 7-7 7" stroke="#a8dadc" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="14" r="2.5" fill="#f1faee"/></svg>
+      西医综合306
+    </div>
+    <div class="user-area">
+      <span id="displayNickname" style="font-size:13px"></span>
+      <div class="avatar" id="displayAvatar"></div>
+      <button class="btn-logout" onclick="logout()">退出</button>
+    </div>
+  </header>
+
+  <nav class="tab-nav" id="tabNav">
+    <button data-tab="bank" class="active">
+      <svg viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h6M6 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      题库
+    </button>
+    <button data-tab="quiz">
+      <svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M7 9l1.5 1.5 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      刷题
+    </button>
+    <button data-tab="stats">
+      <svg viewBox="0 0 18 18" fill="none"><rect x="2" y="9" width="3" height="7" rx="1" fill="currentColor" opacity=".4"/><rect x="7.5" y="5" width="3" height="11" rx="1" fill="currentColor" opacity=".7"/><rect x="13" y="2" width="3" height="14" rx="1" fill="currentColor"/></svg>
+      薄弱点
+    </button>
+    <button data-tab="admin" id="adminTab" style="display:none">
+      <svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="7" r="2" fill="currentColor"/><path d="M5 14c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      管理
+    </button>
+  </nav>
+
+  <main class="main-content" id="mainContent"></main>
+</div>
+
+<!-- Edit Question Modal -->
+<div id="editModal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3 id="editModalTitle">添加题目</h3>
+    <label>章节</label><input id="editChapter" placeholder="如：呼吸系统">
+    <label>题型</label>
+    <select id="editType"><option value="A1">A1型（单选）</option><option value="A2">A2型（病例）</option><option value="B">B型（配伍）</option><option value="X">X型（多选）</option></select>
+    <label>题干</label><textarea id="editQuestion"></textarea>
+    <label>选项（每行一个，如 A. xxx）</label><textarea id="editOptions" rows="5"></textarea>
+    <label>正确答案</label><input id="editAnswer" placeholder="如：A 或 ABD">
+    <label>解析（支持粘贴）</label><textarea id="editExplanation" rows="4"></textarea>
+    <label>视频链接（B站/YouTube等，可选）</label><input id="editVideo" placeholder="https://...">
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="closeEditModal()">取消</button>
+      <button class="btn btn-teal btn-sm" onclick="saveQuestion()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+const API = '';
+let token = localStorage.getItem('medquiz_token');
+let user = JSON.parse(localStorage.getItem('medquiz_user') || 'null');
+let questions = [];
+let records = [];
+let currentTab = 'bank';
+let editingId = null;
+let quizState = null;
+let authMode = 'login';
+
+// ── Helpers ──
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type; t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 2800);
+}
+async function api(url, opts={}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API + url, { ...opts, headers: { ...headers, ...opts.headers } });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ── Auth ──
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  document.getElementById('authTitle').textContent = authMode === 'login' ? '西医综合 306 智能刷题' : '注册新账号';
+  document.getElementById('authSubtitle').textContent = authMode === 'login' ? '登录你的账号开始学习' : '使用激活码创建账号';
+  document.getElementById('authBtn').textContent = authMode === 'login' ? '登 录' : '注 册';
+  document.getElementById('switchLabel').textContent = authMode === 'login' ? '还没有账号？' : '已有账号？';
+  document.getElementById('switchLink').textContent = authMode === 'login' ? '注册新账号' : '去登录';
+  document.getElementById('codeField').style.display = authMode === 'register' ? '' : 'none';
+  document.getElementById('nicknameField').style.display = authMode === 'register' ? '' : 'none';
+  document.getElementById('authCode').value = '';
+  document.getElementById('regNickname').value = '';
+}
+async function handleAuth() {
+  const username = document.getElementById('authUsername').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!username || !password) return showToast('请填写用户名和密码', 'error');
+
+  try {
+    let result;
+    if (authMode === 'login') {
+      result = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    } else {
+      const activationCode = document.getElementById('authCode').value.trim();
+      const nickname = document.getElementById('regNickname').value.trim();
+      if (!activationCode) return showToast('请输入激活码', 'error');
+      result = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ username, password, activationCode, nickname }) });
+    }
+    token = result.token;
+    user = result.user;
+    localStorage.setItem('medquiz_token', token);
+    localStorage.setItem('medquiz_user', JSON.stringify(user));
+    showApp();
+  } catch(e) {
+    showToast(e.message, 'error');
+  }
+}
+function logout() {
+  token = null; user = null;
+  localStorage.removeItem('medquiz_token');
+  localStorage.removeItem('medquiz_user');
+  questions = []; records = []; quizState = null;
+  document.getElementById('appShell').classList.add('hidden');
+  document.getElementById('authPage').classList.remove('hidden');
+  document.getElementById('authUsername').value = '';
+  document.getElementById('authPassword').value = '';
+}
+
+// ── App Init ──
+async function showApp() {
+  document.getElementById('authPage').classList.add('hidden');
+  document.getElementById('appShell').classList.remove('hidden');
+  document.getElementById('displayNickname').textContent = user.nickname || user.username;
+  document.getElementById('displayAvatar').textContent = (user.nickname || user.username)[0].toUpperCase();
+  if (user.is_admin) document.getElementById('adminTab').style.display = '';
+  else document.getElementById('adminTab').style.display = 'none';
+
+  await loadData();
+  setupTabs();
+  switchTab('bank');
+}
+
+async function loadData() {
+  try {
+    const [qs, recs] = await Promise.all([
+      api('/api/questions'),
+      api('/api/records')
+    ]);
+    questions = qs;
+    records = recs;
+  } catch(e) {
+    showToast('加载数据失败: ' + e.message, 'error');
+  }
+}
+
+function setupTabs() {
+  document.getElementById('tabNav').addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    switchTab(btn.dataset.tab);
+  });
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  quizState = null;
+  document.querySelectorAll('#tabNav button').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`#tabNav button[data-tab="${tab}"]`);
+  if (btn) btn.classList.add('active');
+
+  if (tab === 'bank') renderBank();
+  else if (tab === 'quiz') renderQuizSetup();
+  else if (tab === 'stats') renderStats();
+  else if (tab === 'admin') renderAdmin();
+}
+
+// ── Bank Tab ──
+function renderBank() {
+  const mc = document.getElementById('mainContent');
+  let html = `<div class="card">
+    <div class="card-header">
+      <h2><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M7 8h6M7 11h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>题库管理 <span class="badge badge-teal">${questions.length}题</span></h2>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${user.is_admin ? `<button class="btn btn-teal btn-sm" onclick="openEditModal()">添加题目</button>` : ''}
+      ${user.is_admin ? `<button class="btn btn-outline btn-sm" onclick="openImport()">批量导入</button>` : ''}
+      <button class="btn btn-outline btn-sm" onclick="exportBank()">导出题库</button>
+    </div>
+  </div>`;
+
+  if (questions.length === 0) {
+    html += `<div class="card"><div class="empty-state">
+      <svg viewBox="0 0 64 64" fill="none"><rect x="12" y="12" width="40" height="40" rx="6" stroke="currentColor" stroke-width="2"/><circle cx="32" cy="32" r="10" stroke="currentColor" stroke-width="2"/><circle cx="32" cy="32" r="4" fill="currentColor"/></svg>
+      <div class="empty-title">题库为空</div><div class="empty-desc">请联系管理员添加题目</div>
+    </div></div>`;
+  } else {
+    const chapters = [...new Set(questions.map(q => q.chapter || '未分类'))];
+    html += `<div class="chip-group" id="bankChips">
+      <button class="chip active" data-ch="">全部</button>
+      ${chapters.map(ch => `<button class="chip" data-ch="${ch}">${ch}</button>`).join('')}
+    </div>
+    <div class="card" style="padding:0"><div class="q-list" id="bankList"></div></div>`;
+  }
+  mc.innerHTML = html;
+  if (questions.length > 0) {
+    setupChipFilter('bankChips', renderBankList);
+    renderBankList();
+  }
+}
+
+function renderBankList(filterChapter = '') {
+  const list = document.getElementById('bankList');
+  if (!list) return;
+  let qs = questions;
+  if (filterChapter) qs = qs.filter(q => q.chapter === filterChapter);
+  list.innerHTML = qs.map((q, i) => {
+    const userRecs = records.filter(r => r.question_id === q.id);
+    const lastRec = userRecs[userRecs.length - 1];
+    let statusClass = '', statusTag = 'untouched', statusLabel = '未做';
+    if (lastRec) {
+      statusClass = lastRec.is_correct ? 'done' : 'wrong';
+      const sa = lastRec.self_assessment;
+      if (sa === 'mastered') { statusTag = 'mastered'; statusLabel = '已掌握'; }
+      else if (sa === 'uncertain') { statusTag = 'uncertain'; statusLabel = '模棱两可'; }
+      else { statusTag = 'not-know'; statusLabel = '未掌握'; }
+    }
+    const qText = q.question.replace(/\n/g,' ').slice(0,50);
+    return `<div class="q-item" onclick="openEditModal('${q.id}')">
+      <div class="q-no ${statusClass}">${i+1}</div>
+      <div class="q-info">
+        <div class="q-title">${qText}</div>
+        <div class="q-meta">${q.chapter||'未分类'} / ${q.type} / ${userRecs.length}次作答</div>
+      </div>
+      <span class="q-status ${statusTag}">${statusLabel}</span>
+    </div>`;
+  }).join('');
+}
+
+function setupChipFilter(containerId, renderFn) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    renderFn(chip.dataset.ch);
+  });
+}
+
+// ── Import / Export ──
+function openImport() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = async e => {
+    try {
+      const text = await e.target.files[0].text();
+      const arr = JSON.parse(text);
+      if (!Array.isArray(arr)) return showToast('格式错误：需要 JSON 数组', 'error');
+      let added = 0;
+      for (const item of arr) {
+        if (!item.question || !item.options || !item.answer) continue;
+        try {
+          await api('/api/questions', { method: 'POST', body: JSON.stringify({
+            chapter: item.chapter || '', type: item.type || 'A1',
+            question: item.question, options: item.options,
+            answer: item.answer, explanation: item.explanation || '',
+            videoUrl: item.videoUrl || item.video_url || ''
+          })});
+          added++;
+        } catch(e) {}
+      }
+      showToast(`成功导入 ${added} 道题`, 'success');
+      await loadData();
+      renderBank();
+    } catch(e) { showToast('文件读取失败: ' + e.message, 'error'); }
+  };
+  input.click();
+}
+function exportBank() {
+  if (questions.length === 0) return showToast('题库为空');
+  const exportData = questions.map(q => ({
+    chapter: q.chapter, type: q.type, question: q.question,
+    options: q.options, answer: q.answer,
+    explanation: q.explanation, videoUrl: q.video_url
+  }));
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'medquiz_bank.json'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('题库已导出');
+}
+
+// ── Edit Question ──
+function openEditModal(id = null) {
+  if (!user.is_admin && id) return; // non-admin can view but not edit
+  editingId = id;
+  document.getElementById('editModalTitle').textContent = id ? '编辑题目' : '添加题目';
+  document.getElementById('editModal').classList.remove('hidden');
+  if (id) {
+    const q = questions.find(q => q.id === id);
+    if (!q) return;
+    document.getElementById('editChapter').value = q.chapter || '';
+    document.getElementById('editType').value = q.type || 'A1';
+    document.getElementById('editQuestion').value = q.question || '';
+    document.getElementById('editOptions').value = (q.options || []).join('\n');
+    document.getElementById('editAnswer').value = q.answer || '';
+    document.getElementById('editExplanation').value = q.explanation || '';
+    document.getElementById('editVideo').value = q.video_url || '';
+  } else {
+    ['editChapter','editType','editQuestion','editOptions','editAnswer','editExplanation','editVideo'].forEach(id => {
+      document.getElementById(id).value = id === 'editType' ? 'A1' : '';
+    });
+  }
+}
+function closeEditModal() { document.getElementById('editModal').classList.add('hidden'); editingId = null; }
+async function saveQuestion() {
+  const body = {
+    chapter: document.getElementById('editChapter').value.trim() || '未分类',
+    type: document.getElementById('editType').value,
+    question: document.getElementById('editQuestion').value.trim(),
+    options: document.getElementById('editOptions').value.split('\n').filter(s => s.trim()),
+    answer: document.getElementById('editAnswer').value.trim().toUpperCase(),
+    explanation: document.getElementById('editExplanation').value.trim(),
+    videoUrl: document.getElementById('editVideo').value.trim()
+  };
+  if (!body.question) return showToast('请输入题干', 'error');
+  if (body.options.length === 0) return showToast('请输入至少一个选项', 'error');
+  if (!body.answer) return showToast('请输入正确答案', 'error');
+
+  try {
+    if (editingId) {
+      await api('/api/questions/' + editingId, { method: 'PUT', body: JSON.stringify(body) });
+    } else {
+      await api('/api/questions', { method: 'POST', body: JSON.stringify(body) });
+    }
+    closeEditModal();
+    await loadData();
+    renderBank();
+    showToast('题目已保存', 'success');
+  } catch(e) { showToast(e.message, 'error'); }
+}
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditModal();
+});
+
+// ── Quiz Tab ──
+function renderQuizSetup() {
+  if (questions.length === 0) {
+    document.getElementById('mainContent').innerHTML = `<div class="card"><div class="empty-state">
+      <svg viewBox="0 0 64 64" fill="none"><rect x="12" y="12" width="40" height="40" rx="6" stroke="currentColor" stroke-width="2"/><circle cx="32" cy="32" r="10" stroke="currentColor" stroke-width="2"/><circle cx="32" cy="32" r="4" fill="currentColor"/></svg>
+      <div class="empty-title">暂无题目</div><div class="empty-desc">请联系管理员添加题目</div>
+    </div></div>`;
+    return;
+  }
+  const chapters = [...new Set(questions.map(q => q.chapter || '未分类'))];
+  const mc = document.getElementById('mainContent');
+  mc.innerHTML = `<div class="card">
+    <div class="card-header"><h2><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M7.5 10l1.5 1.5 3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>开始刷题</h2></div>
+    <p style="font-size:14px;color:var(--text-light);margin-bottom:16px">选择章节和题型，开始针对性练习</p>
+    <div style="margin-bottom:14px">
+      <span style="font-size:13px;color:var(--text-light);display:block;margin-bottom:6px">选择章节</span>
+      <div class="chip-group" id="quizChapters">
+        <button class="chip active" data-ch="">全部章节</button>
+        ${chapters.map(ch => `<button class="chip" data-ch="${ch}">${ch}</button>`).join('')}
+      </div>
+    </div>
+    <div style="margin-bottom:14px">
+      <span style="font-size:13px;color:var(--text-light);display:block;margin-bottom:6px">选择题型</span>
+      <div class="chip-group" id="quizTypes">
+        <button class="chip active" data-type="">全部</button>
+        <button class="chip" data-type="A1">A1型</button>
+        <button class="chip" data-type="A2">A2型</button>
+        <button class="chip" data-type="B">B型</button>
+        <button class="chip" data-type="X">X型</button>
+      </div>
+    </div>
+    <div style="margin-bottom:20px">
+      <span style="font-size:13px;color:var(--text-light);display:block;margin-bottom:6px">筛选条件</span>
+      <div class="chip-group" id="quizFilter">
+        <button class="chip active" data-f="all">全部题目</button>
+        <button class="chip" data-f="weak">薄弱题目</button>
+        <button class="chip" data-f="untouched">未做题</button>
+        <button class="chip" data-f="wrong">错题</button>
+      </div>
+    </div>
+    <button class="btn btn-teal btn-lg btn-block" onclick="startQuiz()">开始刷题</button>
+  </div>`;
+}
+
+function startQuiz() {
+  let chapter = '', type = '', filter = 'all';
+  const qc = document.querySelector('#quizChapters .active');
+  if (qc) chapter = qc.dataset.ch;
+  const qt = document.querySelector('#quizTypes .active');
+  if (qt) type = qt.dataset.type;
+  const qf = document.querySelector('#quizFilter .active');
+  if (qf) filter = qf.dataset.f;
+
+  let pool = [...questions];
+  if (chapter) pool = pool.filter(q => q.chapter === chapter);
+  if (type) pool = pool.filter(q => q.type === type);
+
+  if (filter === 'untouched') pool = pool.filter(q => !records.some(r => r.question_id === q.id));
+  else if (filter === 'wrong') pool = pool.filter(q => {
+    const recs = records.filter(r => r.question_id === q.id);
+    return recs.length > 0 && !recs[recs.length-1].is_correct;
+  });
+  else if (filter === 'weak') pool = pool.filter(q => {
+    const recs = records.filter(r => r.question_id === q.id);
+    if (recs.length === 0) return false;
+    const last = recs[recs.length-1];
+    return !last.is_correct || last.self_assessment === 'uncertain' || last.self_assessment === 'not-know';
+  });
+
+  if (pool.length === 0) return showToast('没有符合条件的题目', 'error');
+
+  for (let i = pool.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  quizState = { pool, currentIndex: 0, answered: {} };
+  renderQuiz();
+}
+
+function renderQuiz() {
+  if (!quizState || quizState.currentIndex >= quizState.pool.length) {
+    return renderQuizResult();
+  }
+  const q = quizState.pool[quizState.currentIndex];
+  const total = quizState.pool.length;
+  const idx = quizState.currentIndex + 1;
+  const answered = quizState.answered[q.id];
+  const mc = document.getElementById('mainContent');
+  const pct = Math.round(idx/total*100);
+
+  let html = `<div class="card">
+    <div class="quiz-progress">
+      <span>${idx} / ${total}</span>
+      <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <span style="font-size:12px;color:var(--text-light)">${q.chapter||''} / ${q.type}</span>
+    </div>
+    <div class="quiz-question">${q.question}</div>
+    <div id="quizOptions">
+      ${(q.options||[]).map((opt, i) => {
+        let cls = 'quiz-option';
+        if (answered) {
+          const optLetter = String.fromCharCode(65+i);
+          const isCorrect = q.answer.includes(optLetter);
+          const isSelected = answered.selectedAnswer.includes(optLetter);
+          if (isCorrect) cls += ' correct';
+          else if (isSelected) cls += ' wrong';
+          else cls += ' reveal';
+        }
+        return `<button class="${cls}" onclick="selectAnswer('${q.id}',${i})" ${answered?'disabled':''}>
+          <span class="opt-letter">${String.fromCharCode(65+i)}</span>${opt.replace(/^[A-E]\.\s*/,'')}
+        </button>`;
+      }).join('')}
+    </div>`;
+
+  if (answered) {
+    html += `<div class="explanation-box">
+      <div class="answer-line">正确答案：${q.answer}</div>
+      <div class="explanation-text">${q.explanation||'暂无解析'}</div>`;
+    if (q.video_url) {
+      html += `<div class="video-box has-video" onclick="window.open('${q.video_url}','_blank')">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><polygon points="8,6 15,10 8,14" fill="currentColor"/></svg>
+        点击观看视频讲解
+      </div>`;
+    } else {
+      html += `<div class="video-box" onclick="editVideo('${q.id}')">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="5" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><polygon points="8,7 13,10 8,13" fill="currentColor"/></svg>
+        暂无视频（点击添加视频链接）
+      </div>`;
+    }
+    html += `</div>`;
+
+    if (!answered.selfAssessment) {
+      html += `<div class="assess-section">
+        <div class="assess-hint">请标记你的掌握程度：</div>
+        <div class="assess-row">
+          <button class="assess-btn mastered" onclick="markAssessment('${q.id}','mastered')">真正掌握</button>
+          <button class="assess-btn uncertain" onclick="markAssessment('${q.id}','uncertain')">模棱两可</button>
+          <button class="assess-btn not-know" onclick="markAssessment('${q.id}','not-know')">不知道</button>
+        </div>
+      </div>`;
+    } else {
+      html += `<div style="margin-top:12px;text-align:center;font-size:14px;color:var(--teal);font-weight:600">已标记 · 点击下一题继续</div>`;
+    }
+    html += `<button class="btn btn-teal btn-block" onclick="nextQuestion()" style="margin-top:14px">${idx<total?'下一题':'查看结果'}</button>`;
+  }
+  html += `</div>`;
+  mc.innerHTML = html;
+}
+
+function selectAnswer(qid, optIdx) {
+  const q = quizState.pool[quizState.currentIndex];
+  const optLetter = String.fromCharCode(65+optIdx);
+  quizState.answered[qid] = { selectedAnswer: optLetter, isCorrect: q.answer.includes(optLetter) };
+  renderQuiz();
+}
+
+async function markAssessment(qid, assessment) {
+  quizState.answered[qid].selfAssessment = assessment;
+  try {
+    await api('/api/records', { method: 'POST', body: JSON.stringify({
+      questionId: qid,
+      selectedAnswer: quizState.answered[qid].selectedAnswer,
+      isCorrect: quizState.answered[qid].isCorrect,
+      selfAssessment: assessment
+    })});
+    records = await api('/api/records');
+  } catch(e) { showToast('保存失败: ' + e.message, 'error'); }
+  renderQuiz();
+}
+
+function nextQuestion() {
+  quizState.currentIndex++;
+  renderQuiz();
+}
+
+function renderQuizResult() {
+  const total = quizState.pool.length;
+  const correct = Object.values(quizState.answered).filter(a => a.isCorrect).length;
+  const mastered = Object.values(quizState.answered).filter(a => a.selfAssessment==='mastered').length;
+  const uncertain = Object.values(quizState.answered).filter(a => a.selfAssessment==='uncertain').length;
+  const notKnow = Object.values(quizState.answered).filter(a => a.selfAssessment==='not-know').length;
+  const accuracy = total > 0 ? Math.round(correct/total*100) : 0;
+
+  document.getElementById('mainContent').innerHTML = `<div class="card" style="text-align:center">
+    <svg viewBox="0 0 80 80" style="width:80px;height:80px;margin:0 auto 12px"><circle cx="40" cy="40" r="36" fill="none" stroke="var(--border)" stroke-width="3"/><circle cx="40" cy="40" r="36" fill="none" stroke="${accuracy>=80?'var(--green)':accuracy>=60?'var(--orange)':'var(--red)'}" stroke-width="3" stroke-dasharray="${accuracy*2.26} 226" stroke-linecap="round" transform="rotate(-90 40 40)"/><text x="40" y="44" text-anchor="middle" font-size="20" font-weight="700" fill="var(--navy)">${accuracy}%</text></svg>
+    <h2 style="color:var(--navy);margin-bottom:12px">本轮刷题完成</h2>
+    <div class="stat-row" style="margin-bottom:10px">
+      <div class="stat-box"><div class="num">${accuracy}%</div><div class="lbl">正确率</div></div>
+      <div class="stat-box accent"><div class="num">${correct}/${total}</div><div class="lbl">正确/总数</div></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box accent"><div class="num">${mastered}</div><div class="lbl">已掌握</div></div>
+      <div class="stat-box warn"><div class="num">${uncertain}</div><div class="lbl">模棱两可</div></div>
+      <div class="stat-box danger"><div class="num">${notKnow}</div><div class="lbl">不知道</div></div>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:10px;justify-content:center">
+      <button class="btn btn-teal" onclick="startQuiz()">再来一轮</button>
+      <button class="btn btn-outline" onclick="switchTab('stats')">查看薄弱点</button>
+    </div>
+  </div>`;
+}
+
+function editVideo(qid) {
+  const url = prompt('请输入视频链接（B站/YouTube等）：');
+  if (url && user.is_admin) {
+    api('/api/questions/' + qid, { method: 'PUT', body: JSON.stringify({
+      chapter: questions.find(q=>q.id===qid)?.chapter||'',
+      type: questions.find(q=>q.id===qid)?.type||'A1',
+      question: questions.find(q=>q.id===qid)?.question||'',
+      options: questions.find(q=>q.id===qid)?.options||[],
+      answer: questions.find(q=>q.id===qid)?.answer||'',
+      explanation: questions.find(q=>q.id===qid)?.explanation||'',
+      videoUrl: url
+    })}).then(async () => {
+      await loadData();
+      showToast('视频链接已保存', 'success');
+    });
+  } else if (url) {
+    showToast('仅管理员可编辑视频链接', 'error');
+  }
+}
+
+// ── Stats Tab ──
+async function renderStats() {
+  const mc = document.getElementById('mainContent');
+  try {
+    const stats = await api('/api/stats');
+    let html = `<div class="card">
+      <div class="card-header"><h2><svg viewBox="0 0 20 20" fill="none"><rect x="2" y="11" width="3" height="7" rx="1" fill="currentColor" opacity=".4"/><rect x="8.5" y="6" width="3" height="12" rx="1" fill="currentColor" opacity=".7"/><rect x="15" y="2" width="3" height="16" rx="1" fill="currentColor"/></svg>学习统计</h2></div>
+      <div class="stat-row">
+        <div class="stat-box"><div class="num">${stats.total}</div><div class="lbl">题库总数</div></div>
+        <div class="stat-box accent"><div class="num">${stats.done}</div><div class="lbl">已作答</div></div>
+        <div class="stat-box warn"><div class="num">${stats.total - stats.done}</div><div class="lbl">未作答</div></div>
+      </div>
+    </div>`;
+
+    html += `<div class="card"><div class="card-header"><h2>各章节薄弱点分析</h2></div>`;
+    if (stats.chapterStats.length === 0) {
+      html += `<div class="empty-state"><div class="empty-desc">暂无数据</div></div>`;
+    } else {
+      stats.chapterStats.forEach(cs => {
+        const pct = cs.total > 0 ? Math.round(cs.done/cs.total*100) : 0;
+        html += `<div class="chapter-stat">
+          <div class="cs-header"><span class="cs-name">${cs.chapter}</span><span class="cs-meta">${cs.done}/${cs.total} 已做 · ${cs.weak} 薄弱</span></div>
+          <div class="cs-bar"><div class="cs-bar-fill" style="width:${pct}%"></div></div>
+          ${cs.weak > 0 ? `<div class="cs-warn">${cs.weak}道薄弱题，建议重点复习</div>` : ''}
+        </div>`;
+      });
+    }
+    html += `</div>`;
+
+    // Weak questions list
+    const weakQs = questions.filter(q => {
+      const recs = records.filter(r => r.question_id === q.id);
+      if (recs.length === 0) return false;
+      const last = recs[recs.length-1];
+      return !last.is_correct || last.self_assessment !== 'mastered';
+    });
+
+    if (weakQs.length > 0) {
+      html += `<div class="card">
+        <div class="card-header"><h2>薄弱题目 <span class="badge badge-red">${weakQs.length}</span></h2></div>
+        <div class="q-list">`;
+      weakQs.forEach((q, i) => {
+        const recs = records.filter(r => r.question_id === q.id);
+        const last = recs[recs.length-1];
+        const sa = last ? last.self_assessment : '';
+        const tag = sa === 'not-know' ? 'not-know' : sa === 'uncertain' ? 'uncertain' : 'not-know';
+        const label = sa === 'not-know' ? '不知道' : sa === 'uncertain' ? '模棱两可' : '未掌握';
+        html += `<div class="q-item" onclick="openEditModal('${q.id}')">
+          <div class="q-no wrong">${i+1}</div>
+          <div class="q-info">
+            <div class="q-title">${q.question.replace(/\n/g,' ').slice(0,50)}</div>
+            <div class="q-meta">${q.chapter||''} / 作答${recs.length}次</div>
+          </div>
+          <span class="q-status ${tag}">${label}</span>
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
+    mc.innerHTML = html;
+  } catch(e) {
+    mc.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-desc">加载失败: ${e.message}</div></div></div>`;
+  }
+}
+
+// ── Admin Tab ──
+async function renderAdmin() {
+  if (!user.is_admin) return;
+  const mc = document.getElementById('mainContent');
+  try {
+    const [codes, users] = await Promise.all([
+      api('/api/admin/codes'),
+      api('/api/admin/users')
+    ]);
+
+    let html = `<div class="card">
+      <div class="card-header"><h2>激活码管理</h2></div>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-teal btn-sm" onclick="generateCodes()">生成激活码</button>
+        <span style="font-size:13px;color:var(--text-light)">共 ${codes.length} 个</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="admin-table">
+          <thead><tr><th>激活码</th><th>状态</th><th>使用者</th><th>创建时间</th></tr></thead>
+          <tbody>
+            ${codes.map(c => `<tr>
+              <td><span class="code">${c.code}</span></td>
+              <td><span class="${c.is_used?'used':'unused'}">${c.is_used?'已使用':'未使用'}</span></td>
+              <td>${c.used_by||'-'}</td>
+              <td>${c.created_at||'-'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+    html += `<div class="card">
+      <div class="card-header"><h2>用户列表</h2></div>
+      <div style="overflow-x:auto">
+        <table class="admin-table">
+          <thead><tr><th>用户名</th><th>昵称</th><th>角色</th><th>激活码</th><th>注册时间</th></tr></thead>
+          <tbody>
+            ${users.map(u => `<tr>
+              <td><strong>${u.username}</strong></td>
+              <td>${u.nickname||'-'}</td>
+              <td>${u.is_admin?'管理员':'用户'}</td>
+              <td><span class="code">${u.activation_code||'-'}</span></td>
+              <td>${u.created_at||'-'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+    mc.innerHTML = html;
+  } catch(e) {
+    mc.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-desc">加载失败</div></div></div>`;
+  }
+}
+
+async function generateCodes() {
+  const count = parseInt(prompt('生成多少个激活码？（1-100）', '5'));
+  if (!count || count < 1 || count > 100) return;
+  const prefix = prompt('激活码前缀（可选）', 'MED');
+  try {
+    const result = await api('/api/admin/codes', { method: 'POST', body: JSON.stringify({ count, prefix }) });
+    showToast(`已生成 ${result.codes.length} 个激活码`, 'success');
+    renderAdmin();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ── Init ──
+if (token) {
+  showApp();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "medquiz-306",
+  "version": "2.0.0",
+  "description": "西医综合306智能刷题平台",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "bcryptjs": "^2.4.3",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
