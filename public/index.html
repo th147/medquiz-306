@@ -262,15 +262,26 @@ body{
 .explanation-box .explanation-text{font-size:14px;line-height:1.8;color:var(--text)}
 
 /* ── Video ── */
-.video-box{
-  margin-top:12px;padding:16px;border-radius:var(--radius-sm);
+.video-section{margin-top:14px}
+.video-embed{
+  position:relative;padding-bottom:56.25%;height:0;overflow:hidden;
+  border-radius:var(--radius-sm);background:#000;
+}
+.video-embed iframe{
+  position:absolute;top:0;left:0;width:100%;height:100%;
+  border:none;border-radius:var(--radius-sm);
+}
+.video-placeholder{
+  padding:16px;border-radius:var(--radius-sm);
   background:var(--bg);border:1.5px dashed var(--border);
   text-align:center;font-size:14px;color:var(--text-light);cursor:pointer;
   transition:var(--transition);display:flex;align-items:center;justify-content:center;gap:8px;
 }
-.video-box:hover{border-color:var(--teal);color:var(--teal);background:#f5faf9}
-.video-box.has-video{border-style:solid;border-color:var(--teal);background:var(--blue-bg);color:var(--teal)}
-.video-box svg{width:20px;height:20px}
+.video-placeholder:hover{border-color:var(--teal);color:var(--teal);background:#f5faf9}
+.video-placeholder svg{width:20px;height:20px}
+.video-hint{
+  font-size:12px;color:var(--text-light);margin-top:6px;text-align:center;
+}
 
 /* ── Assessment ── */
 .assess-section{margin-top:16px}
@@ -437,7 +448,7 @@ body{
     <label>选项（每行一个，如 A. xxx）</label><textarea id="editOptions" rows="5"></textarea>
     <label>正确答案</label><input id="editAnswer" placeholder="如：A 或 ABD">
     <label>解析（支持粘贴）</label><textarea id="editExplanation" rows="4"></textarea>
-    <label>视频链接（B站/YouTube等，可选）</label><input id="editVideo" placeholder="https://...">
+    <label>视频讲解（B站BV号/YouTube链接，可选）</label><input id="editVideo" placeholder="如：BV1xx411c7mD">
     <div class="btn-row">
       <button class="btn btn-outline btn-sm" onclick="closeEditModal()">取消</button>
       <button class="btn btn-teal btn-sm" onclick="saveQuestion()">保存</button>
@@ -858,14 +869,24 @@ function renderQuiz() {
       <div class="answer-line">正确答案：${q.answer}</div>
       <div class="explanation-text">${q.explanation||'暂无解析'}</div>`;
     if (q.video_url) {
-      html += `<div class="video-box has-video" onclick="window.open('${q.video_url}','_blank')">
-        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><polygon points="8,6 15,10 8,14" fill="currentColor"/></svg>
-        点击观看视频讲解
-      </div>`;
+      const embedHtml = parseVideoEmbed(q.video_url);
+      if (embedHtml) {
+        html += `<div class="video-section"><div class="video-embed">${embedHtml}</div></div>`;
+      } else {
+        html += `<div class="video-section">
+          <div class="video-placeholder" onclick="window.open('${q.video_url}','_blank')">
+            <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><polygon points="8,6 15,10 8,14" fill="currentColor"/></svg>
+            点击观看视频讲解（外部链接）
+          </div>
+        </div>`;
+      }
     } else {
-      html += `<div class="video-box" onclick="editVideo('${q.id}')">
-        <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="5" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><polygon points="8,7 13,10 8,13" fill="currentColor"/></svg>
-        暂无视频（点击添加视频链接）
+      html += `<div class="video-section">
+        <div class="video-placeholder" onclick="editVideo('${q.id}')">
+          <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="5" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><polygon points="8,7 13,10 8,13" fill="currentColor"/></svg>
+          暂无视频讲解（点击添加）
+        </div>
+        <div class="video-hint">提示：将视频上传到B站后，粘贴BV号即可嵌入播放</div>
       </div>`;
     }
     html += `</div>`;
@@ -942,7 +963,7 @@ function renderQuizResult() {
 }
 
 function editVideo(qid) {
-  const url = prompt('请输入视频链接（B站/YouTube等）：');
+  const url = prompt('请输入视频信息（支持以下格式）：\n\nB站视频：粘贴BV号或链接\n例如：BV1xx411c7mD\n\nYouTube：粘贴完整链接\n例如：https://youtube.com/watch?v=xxxxx\n\n其他平台：粘贴完整链接');
   if (url && user.is_admin) {
     api('/api/questions/' + qid, { method: 'PUT', body: JSON.stringify({
       chapter: questions.find(q=>q.id===qid)?.chapter||'',
@@ -954,11 +975,41 @@ function editVideo(qid) {
       videoUrl: url
     })}).then(async () => {
       await loadData();
-      showToast('视频链接已保存', 'success');
+      showToast('视频已保存', 'success');
     });
   } else if (url) {
-    showToast('仅管理员可编辑视频链接', 'error');
+    showToast('仅管理员可编辑视频', 'error');
   }
+}
+
+// ── Video Embed Parser ──
+function parseVideoEmbed(url) {
+  if (!url) return '';
+  url = url.trim();
+
+  // Bilibili: BV号 或 av号 或 bilibili链接
+  const bvMatch = url.match(/BV[a-zA-Z0-9]{10}/);
+  if (bvMatch) {
+    return `<iframe src="https://player.bilibili.com/player.html?bvid=${bvMatch[0]}&high_quality=1&autoplay=0" allowfullscreen loading="lazy"></iframe>`;
+  }
+  const avMatch = url.match(/av(\d+)/i);
+  if (avMatch) {
+    return `<iframe src="https://player.bilibili.com/player.html?aid=${avMatch[1]}&high_quality=1&autoplay=0" allowfullscreen loading="lazy"></iframe>`;
+  }
+  if (url.includes('bilibili.com/video/')) {
+    const bv2 = url.match(/BV[a-zA-Z0-9]{10}/);
+    if (bv2) return `<iframe src="https://player.bilibili.com/player.html?bvid=${bv2[0]}&high_quality=1&autoplay=0" allowfullscreen loading="lazy"></iframe>`;
+    const av2 = url.match(/av(\d+)/i);
+    if (av2) return `<iframe src="https://player.bilibili.com/player.html?aid=${av2[1]}&high_quality=1&autoplay=0" allowfullscreen loading="lazy"></iframe>`;
+  }
+
+  // YouTube: 支持多种格式
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  if (ytMatch) {
+    return `<iframe src="https://www.youtube.com/embed/${ytMatch[1]}" allowfullscreen loading="lazy"></iframe>`;
+  }
+
+  return '';
 }
 
 // ── Stats Tab ──
