@@ -348,7 +348,37 @@ body{
 .admin-table .used{color:var(--green);font-weight:600}
 .admin-table .unused{color:var(--text-light)}
 
-/* ── Responsive ── */
+/* ── Question Navigator ── */
+.q-nav-bar{
+  border-top:1px solid var(--border);margin-top:16px;padding-top:14px;
+}
+.q-nav-bar .nav-title{
+  font-size:12px;color:var(--text-light);margin-bottom:10px;display:flex;align-items:center;gap:12px;
+}
+.q-nav-bar .nav-title .legend{display:flex;align-items:center;gap:4px;font-size:11px}
+.q-nav-bar .nav-title .legend .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.q-nav-grid{
+  display:flex;flex-wrap:wrap;gap:6px;max-height:160px;overflow-y:auto;
+}
+.q-nav-btn{
+  width:34px;height:34px;border-radius:8px;border:1.5px solid var(--border);
+  background:var(--white);font-size:12px;font-weight:600;cursor:pointer;
+  transition:var(--transition);font-family:inherit;color:var(--text-light);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.q-nav-btn:hover{transform:scale(1.1);box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.q-nav-btn.current{border-color:var(--teal);background:var(--teal);color:var(--white);box-shadow:0 2px 8px rgba(45,139,139,.3)}
+.q-nav-btn.correct{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+.q-nav-btn.wrong{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+.q-nav-btn.untouched{border-color:var(--border);background:var(--white);color:var(--text-light)}
+
+/* ── Year Badge ── */
+.year-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  background:linear-gradient(135deg,var(--navy),var(--teal));
+  color:var(--white);padding:4px 12px;border-radius:14px;
+  font-size:12px;font-weight:700;margin-bottom:12px;
+}
 @media(min-width:768px){
   .main-content{padding:28px;padding-bottom:48px}
   .tab-nav button{font-size:15px;padding:16px}
@@ -931,6 +961,10 @@ function renderQuiz() {
       <div class="bar"><div class="bar-fill" style="width:${pct}%"></div></div>
       <span style="font-size:12px;color:var(--text-light)">${isExam ? (quizState.examYear + '年真题 · ' + q.type) : (q.chapter||'') + ' / ' + q.type}</span>
     </div>
+    ${isExam ? `<div class="year-badge">
+      <svg viewBox="0 0 14 14" style="width:12px;height:12px"><rect x="2" y="1" width="10" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5 5h4M5 8h3" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>
+      ${quizState.examYear}年真题
+    </div>` : ''}
     <div class="quiz-question">${q.question}</div>
     <div id="quizOptions">
       ${(q.options||[]).map((opt, i) => {
@@ -948,6 +982,27 @@ function renderQuiz() {
         </button>`;
       }).join('')}
     </div>`;
+
+  // Question Navigator
+  html += `<div class="q-nav-bar">
+    <div class="nav-title">
+      <span>题目导航</span>
+      <span class="legend"><span class="dot" style="background:var(--teal)"></span>当前</span>
+      <span class="legend"><span class="dot" style="background:var(--green)"></span>正确</span>
+      <span class="legend"><span class="dot" style="background:var(--red)"></span>错误</span>
+      <span class="legend"><span class="dot" style="background:var(--border)"></span>未做</span>
+    </div>
+    <div class="q-nav-grid">`;
+  for (let i = 0; i < total; i++) {
+    const qi = quizState.pool[i];
+    const a = quizState.answered[qi.id];
+    let cls = 'q-nav-btn';
+    if (i === quizState.currentIndex) cls += ' current';
+    else if (a) cls += a.isCorrect ? ' correct' : ' wrong';
+    else cls += ' untouched';
+    html += `<button class="${cls}" onclick="jumpToQuestion(${i})">${i+1}</button>`;
+  }
+  html += `</div></div>`;
 
   if (answered) {
     html += `<div class="explanation-box">
@@ -1018,6 +1073,13 @@ async function markAssessment(qid, assessment) {
 function nextQuestion() {
   quizState.currentIndex++;
   renderQuiz();
+}
+
+function jumpToQuestion(index) {
+  quizState.currentIndex = index;
+  renderQuiz();
+  // scroll to top of question card
+  document.getElementById('mainContent').scrollIntoView({ behavior: 'smooth' });
 }
 
 function renderQuizResult() {
