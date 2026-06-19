@@ -589,6 +589,7 @@ function renderBank() {
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${user.is_admin ? `<button class="btn btn-teal btn-sm" onclick="openEditModal()">添加题目</button>` : ''}
       ${user.is_admin ? `<button class="btn btn-outline btn-sm" onclick="openImport()">批量导入</button>` : ''}
+      ${user.is_admin ? `<button class="btn btn-outline btn-sm" onclick="load2000Exam()">加载2000年真题</button>` : ''}
       <button class="btn btn-outline btn-sm" onclick="exportBank()">导出题库</button>
     </div>
   </div>`;
@@ -1140,6 +1141,30 @@ async function generateCodes() {
     showToast(`已生成 ${result.codes.length} 个激活码`, 'success');
     renderAdmin();
   } catch(e) { showToast(e.message, 'error'); }
+}
+
+// ── Load 2000 Exam ──
+async function load2000Exam() {
+  if (!confirm('将导入2000年西医综合真题（约130道题），已存在的题目不会被覆盖。确定继续？')) return;
+  try {
+    const res = await fetch('/2000年真题.json');
+    const arr = await res.json();
+    let added = 0;
+    for (const item of arr) {
+      try {
+        await api('/api/questions', { method: 'POST', body: JSON.stringify({
+          chapter: item.chapter || '', type: item.type || 'A1',
+          question: item.question, options: item.options,
+          answer: item.answer, explanation: item.explanation || '',
+          videoUrl: item.videoUrl || ''
+        })});
+        added++;
+      } catch(e) {}
+    }
+    showToast(`成功导入 ${added} 道题`, 'success');
+    await loadData();
+    if (currentTab === 'bank') renderBank();
+  } catch(e) { showToast('加载失败: ' + e.message, 'error'); }
 }
 
 // ── Init ──
