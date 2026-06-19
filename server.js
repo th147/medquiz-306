@@ -44,6 +44,7 @@ db.exec(`
     answer TEXT NOT NULL,
     explanation TEXT DEFAULT '',
     video_url TEXT DEFAULT '',
+    year TEXT DEFAULT '',
     created_at TEXT DEFAULT (datetime('now','localtime'))
   );
   CREATE TABLE IF NOT EXISTS records (
@@ -58,6 +59,9 @@ db.exec(`
     FOREIGN KEY (question_id) REFERENCES questions(id)
   );
 `);
+
+// ── Migration: add year column if missing ──
+try { db.exec('ALTER TABLE questions ADD COLUMN year TEXT DEFAULT \'\''); } catch(e) { /* already exists */ }
 
 // Seed default admin & activation codes
 const seedAdmin = db.prepare('INSERT OR IGNORE INTO users (username, password_hash, is_admin, activation_code, nickname) VALUES (?,?,1,?,?)');
@@ -155,24 +159,42 @@ app.get('/api/questions', authMiddleware, (req, res) => {
 });
 
 app.post('/api/questions', authMiddleware, adminMiddleware, (req, res) => {
-  const { chapter, type, question, options, answer, explanation, videoUrl } = req.body;
+  const { chapter, type, question, options, answer, explanation, videoUrl, year } = req.body;
   if (!question || !options || !answer) return res.status(400).json({error:'缺少必要字段'});
   const id = 'q_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-  db.prepare('INSERT INTO questions (id,chapter,type,question,options,answer,explanation,video_url) VALUES (?,?,?,?,?,?,?,?)')
-    .run(id, chapter||'', type||'A1', question, JSON.stringify(options), answer.toUpperCase(), explanation||'', videoUrl||'');
+  db.prepare('INSERT INTO questions (id,chapter,type,question,options,answer,explanation,video_url,year) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(id, chapter||'', type||'A1', question, JSON.stringify(options), answer.toUpperCase(), explanation||'', videoUrl||'', year||'');
   res.json({ id, message:'题目已添加' });
 });
 
 app.put('/api/questions/:id', authMiddleware, adminMiddleware, (req, res) => {
-  const { chapter, type, question, options, answer, explanation, videoUrl } = req.body;
-  db.prepare('UPDATE questions SET chapter=?,type=?,question=?,options=?,answer=?,explanation=?,video_url=? WHERE id=?')
-    .run(chapter||'', type||'A1', question, JSON.stringify(options), answer.toUpperCase(), explanation||'', videoUrl||'', req.params.id);
+  const { chapter, type, question, options, answer, explanation, videoUrl, year } = req.body;
+  db.prepare('UPDATE questions SET chapter=?,type=?,question=?,options=?,answer=?,explanation=?,video_url=?,year=? WHERE id=?')
+    .run(chapter||'', type||'A1', question, JSON.stringify(options), answer.toUpperCase(), explanation||'', videoUrl||'', year||'', req.params.id);
   res.json({ message:'题目已更新' });
 });
 
 app.delete('/api/questions/:id', authMiddleware, adminMiddleware, (req, res) => {
   db.prepare('DELETE FROM questions WHERE id=?').run(req.params.id);
   res.json({ message:'题目已删除' });
+});
+
+// ── Exam Paper Routes ─────────────────────────────────────────
+app.get('/api/exam-papers', authMiddleware, (req, res) => {
+  const years = db.prepare("SELECT DISTINCT year FROM questions WHERE year != '' ORDER BY year DESC").all();
+  const papers = years.map(y => {
+    const total = db.prepare('SELECT COUNT(*) as cnt FROM questions WHERE year=?').get(y.year).cnt;
+    const done = db.prepare('SELECT COUNT(DISTINCT question_id) as cnt FROM records WHERE user_id=? AND question_id IN (SELECT id FROM questions WHERE year=?)').get(req.user.id, y.year).cnt;
+    return { year: y.year, total, done };
+  });
+  res.json(papers);
+});
+
+app.get('/api/exam-papers/:year', authMiddleware, (req, res) => {
+  const year = req.params.year;
+  const rows = db.prepare('SELECT * FROM questions WHERE year=? ORDER BY id ASC').all(year);
+  const questions = rows.map(r => ({ ...r, options: JSON.parse(r.options) }));
+  res.json(questions);
 });
 
 // ── Record Routes ────────────────────────────────────────────
