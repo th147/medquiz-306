@@ -36,7 +36,92 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Database Setup ──────────────────────────────────────────
-const db = new Database(path.join(__dirname, 'data.db'));
+const DB_PATH = path.join(__dirname, 'data.db');
+const GITHUB_TOKEN = process.env.GH_TOKEN || '';
+const GITHUB_REPO = 'th147/medquiz-306';
+const BACKUP_PATH = 'backup/data.db';
+const BACKUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+// ── GitHub Backup Sync ──────────────────────────────────────
+function githubApi(method, apiPath, body) {
+  return new Promise((resolve) => {
+    try {
+      const url = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + apiPath;
+      let cmd = `curl -s -X ${method} -H "Authorization: token ${GITHUB_TOKEN}" -H "Accept: application/vnd.github.v3+json" -H "User-Agent: medquiz-backup" --max-time 30`;
+      if (body) {
+        const bodyStr = JSON.stringify(body);
+        cmd += ` -H "Content-Type: application/json" -d '${bodyStr.replace(/'/g, "'\\''")}'`;
+      }
+      cmd += ` "${url}"`;
+      const result = execSync(cmd, { timeout: 35000, encoding: 'utf-8' });
+      const data = JSON.parse(result);
+      resolve({ status: 200, data });
+    } catch(e) {
+      try {
+        const data = JSON.parse(e.stdout || '{}');
+        resolve({ status: e.status || 0, data });
+      } catch(e2) {
+        resolve({ status: 0, data: null });
+      }
+    }
+  });
+}
+
+async function downloadDb() {
+  if (!GITHUB_TOKEN) { console.log('[备份] 未配置 GH_TOKEN，跳过'); return false; }
+  try {
+    console.log('[备份] 正在从 GitHub 下载数据库...');
+    const getRes = await githubApi('GET', BACKUP_PATH);
+    if (getRes.status !== 200 || !getRes.data || !getRes.data.content) {
+      console.log('[备份] GitHub 无备份，将使用本地数据库');
+      return false;
+    }
+    const buf = Buffer.from(getRes.data.content, 'base64');
+    const sha = getRes.data.sha;
+    fs.writeFileSync(DB_PATH, buf);
+    console.log('[备份] 数据库下载成功 (' + (buf.length / 1024).toFixed(1) + ' KB), sha=' + sha);
+    return sha;
+  } catch(e) {
+    console.log('[备份] 下载失败: ' + e.message);
+    return false;
+  }
+}
+
+async function uploadDb(sha) {
+  if (!GITHUB_TOKEN) return sha;
+  try {
+    const buf = fs.readFileSync(DB_PATH);
+    const content = buf.toString('base64');
+    const body = { message: 'auto backup ' + new Date().toISOString(), content: content };
+    if (sha) body.sha = sha;
+    const res = await githubApi('PUT', BACKUP_PATH, body);
+    if (res.status === 200 || res.status === 201) {
+      console.log('[备份] 数据库备份成功 (' + (buf.length / 1024).toFixed(1) + ' KB)');
+      return res.data.sha;
+    }
+    console.log('[备份] 备份失败 HTTP ' + res.status);
+    return sha;
+  } catch(e) {
+    console.log('[备份] 备份异常: ' + e.message);
+    return sha;
+  }
+}
+
+let backupSha = null;
+
+async function syncStartup() {
+  backupSha = await downloadDb();
+}
+
+setInterval(() => {
+  uploadDb(backupSha).then(newSha => { if (newSha) backupSha = newSha; });
+}, BACKUP_INTERVAL);
+
+// Also backup on graceful shutdown
+process.on('SIGTERM', () => { uploadDb(backupSha); process.exit(0); });
+process.on('SIGINT', () => { uploadDb(backupSha); process.exit(0); });
+
+const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
@@ -639,9 +724,13 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Start server immediately, sync database in background
+syncStartup();
 app.listen(PORT, () => {
   console.log(`\n  一研为定 · 智能刷题平台已启动`);
   console.log(`  📍 http://localhost:${PORT}`);
   console.log(`  👤 管理员账号: admin / admin306`);
   console.log(`  🔑 默认激活码: ${defaultCodes.join(', ')}\n`);
+  // Initial backup after startup
+  setTimeout(() => uploadDb(backupSha).then(newSha => { if (newSha) backupSha = newSha; }), 10000);
 });

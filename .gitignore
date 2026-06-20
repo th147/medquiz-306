@@ -7,4 +7,5 @@ public/uploads/pdf_cache/*
 public/uploads/avatars/*
 !public/uploads/notes/.gitkeep
 !public/uploads/pdf_cache/.gitkeep
-!public/uploads/avatars/.gitkeep
+!public/uploads/avatars/.gitkeepbackup/*
+!backup/.gitkeep
