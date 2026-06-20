@@ -657,7 +657,6 @@ body.no-screenshot img {
       一研为定
     </div>
     <div class="user-area">
-      <span id="displayNickname" style="font-size:13px"></span>
       <div class="avatar" id="displayAvatar" onclick="uploadAvatar()" title="点击上传头像"></div>
       <button class="btn-logout" onclick="logout()">退出</button>
       <button class="btn-logout" onclick="openSettings()" title="设置" style="padding:6px 10px;font-size:14px">&#9881;</button>
@@ -871,7 +870,6 @@ function logout() {
 async function showApp() {
   document.getElementById('authPage').classList.add('hidden');
   document.getElementById('appShell').classList.remove('hidden');
-  document.getElementById('displayNickname').textContent = user.nickname || user.username;
   const av = document.getElementById('displayAvatar');
   if (user.avatar) {
     av.innerHTML = `<img src="${user.avatar}" class="avatar-img" alt="头像" onclick="uploadAvatar()">`;
