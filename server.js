@@ -127,9 +127,10 @@ const seedCodes = db.prepare('INSERT OR IGNORE INTO activation_codes (code) VALU
 const defaultCodes = ['MED306START','XIZONG306OK','306PASS2026','WESTMED001','DOCTOR306','MEDICAL25'];
 defaultCodes.forEach(c => seedCodes.run(c));
 
-// Auto-seed 2000年真题 if database is empty
+// Auto-seed 2000年真题 if database is empty (skip if cleared by admin)
 const questionCount = db.prepare('SELECT COUNT(*) as cnt FROM questions').get();
-if (questionCount.cnt === 0) {
+const noAutoseed = fs.existsSync(path.join(__dirname, '.no_autoseed'));
+if (questionCount.cnt === 0 && !noAutoseed) {
   try {
     const examPath = path.join(__dirname, 'public', '2000年真题.json');
     if (fs.existsSync(examPath)) {
@@ -297,6 +298,17 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, (req, res) => {
   res.json(users);
 });
 
+app.delete('/api/admin/questions', authMiddleware, adminMiddleware, (req, res) => {
+  db.prepare('DELETE FROM records').run();
+  db.prepare('DELETE FROM comments').run();
+  db.prepare('DELETE FROM comment_likes').run();
+  db.prepare('DELETE FROM comment_favorites').run();
+  db.prepare('DELETE FROM questions').run();
+  // Prevent auto-seed on next restart
+  fs.writeFileSync(path.join(__dirname, '.no_autoseed'), '1');
+  res.json({ message: '题库已清空，下次启动不会自动导入' });
+});
+
 // ── Stats ────────────────────────────────────────────────────
 app.get('/api/stats', authMiddleware, (req, res) => {
   const total = db.prepare('SELECT COUNT(*) as cnt FROM questions').get().cnt;
@@ -339,7 +351,7 @@ app.get('/api/notes', authMiddleware, (req, res) => {
   res.json(notes);
 });
 
-app.post('/api/notes', authMiddleware, upload.single('file'), (req, res) => {
+app.post('/api/notes', authMiddleware, adminMiddleware, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '请选择文件' });
   const origName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
   const result = db.prepare('INSERT INTO notes (user_id,filename,original_name,file_size) VALUES (?,?,?,?)')
