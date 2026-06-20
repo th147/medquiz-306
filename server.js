@@ -22,12 +22,12 @@ app.use((req, res, next) => {
   }
   // Security headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self' https://docs.google.com");
   next();
 });
 
@@ -371,12 +371,12 @@ app.get('/api/notes/:id/view', (req, res) => {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
     const ext = path.extname(note.original_name).toLowerCase();
 
-    // Word docs: redirect to Office Online viewer via temp public URL
+    // Word docs: redirect to Google Docs Viewer
     if (ext === '.docx' || ext === '.doc') {
       const pubToken = jwt.sign({ noteId: note.id }, JWT_SECRET, { expiresIn: '30m' });
-      const pubUrl = `${req.protocol}://${req.get('host')}/api/pub/notes/${note.id}?token=${pubToken}`;
-      const officeUrl = 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(pubUrl);
-      return res.redirect(officeUrl);
+      const pubUrl = `https://${req.get('host')}/api/pub/notes/${note.id}?token=${pubToken}`;
+      const gdvUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(pubUrl) + '&embedded=true';
+      return res.redirect(gdvUrl);
     }
 
     const mimeMap = {
@@ -386,7 +386,7 @@ app.get('/api/notes/:id/view', (req, res) => {
       '.gif': 'image/gif', '.webp': 'image/webp'
     };
     res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(note.original_name) + '"');
+    res.setHeader('Content-Disposition', 'inline');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     fs.createReadStream(filePath).pipe(res);
   } catch(e) {

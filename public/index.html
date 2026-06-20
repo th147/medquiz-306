@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="description" content="一研为定 · 考研智能刷题平台，包含历年真题、章节练习、自我评估等功能">
 <meta name="author" content="yiyanweiding">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self' https://docs.google.com">
 <title>一研为定 · 智能刷题平台</title>
 <style>
 /* ── 医考帮风格 活力配色 ── */
@@ -602,6 +602,29 @@ body.no-screenshot img {
 .comment-action svg{width:15px;height:15px}
 .comment-delete{font-size:11px;color:var(--text-light);cursor:pointer;margin-left:auto;background:none;border:none;font-family:inherit;padding:2px 6px;border-radius:8px;transition:var(--transition)}
 .comment-delete:hover{background:var(--red-bg);color:var(--red)}
+
+/* ── Viewer Modal ── */
+.viewer-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;
+  display:flex;flex-direction:column;animation:fadeIn .2s;
+}
+.viewer-toolbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;background:var(--white);flex-shrink:0;
+}
+.viewer-toolbar .viewer-title{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:12px}
+.viewer-toolbar .btn-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-light);padding:4px 8px;border-radius:8px;line-height:1}
+.viewer-toolbar .btn-close:hover{background:var(--bg);color:var(--red)}
+.viewer-body{flex:1;overflow:hidden;background:#525659}
+.viewer-body iframe{width:100%;height:100%;border:none;background:#fff}
+.viewer-loading{
+  display:flex;align-items:center;justify-content:center;height:100%;
+  flex-direction:column;gap:12px;color:#fff;font-size:14px;
+}
+.viewer-loading .spinner{
+  width:36px;height:36px;border:3px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;
+}
 </style>
 </head>
 <body>
@@ -756,6 +779,21 @@ body.no-screenshot img {
   </div>
 </div>
 
+<!-- Viewer Modal -->
+<div id="viewerModal" class="modal-overlay hidden" style="background:rgba(0,0,0,.85)">
+  <div class="viewer-toolbar">
+    <span class="viewer-title" id="viewerTitle">笔记预览</span>
+    <button class="btn-close" onclick="closeViewer()">&times;</button>
+  </div>
+  <div class="viewer-body">
+    <div class="viewer-loading" id="viewerLoading">
+      <div class="spinner"></div>
+      <span>加载中...</span>
+    </div>
+    <iframe id="viewerFrame" style="display:none" allowfullscreen></iframe>
+  </div>
+</div>
+
 <script>
 // ── State ──
 const API = '';
@@ -768,6 +806,7 @@ let editingId = null;
 let quizState = null;
 let authMode = 'login';
 let regAvatarFile = null;
+let notesCache = [];
 
 // ── Helpers ──
 function showToast(msg, type='') {
@@ -1676,6 +1715,7 @@ async function renderNotes() {
 async function loadNotes() {
   try {
     const notes = await api('/api/notes');
+    notesCache = notes;
     const grid = document.getElementById('notesGrid');
     if (!grid) return;
     if (notes.length === 0) {
@@ -1737,7 +1777,27 @@ function uploadNote() {
 }
 
 function viewNote(id) {
-  window.open(API + '/api/notes/' + id + '/view?token=' + token, '_blank');
+  const note = notesCache.find(n => n.id === id);
+  const title = note ? note.original_name : '笔记预览';
+  document.getElementById('viewerTitle').textContent = title;
+  document.getElementById('viewerModal').classList.remove('hidden');
+  const frame = document.getElementById('viewerFrame');
+  const loading = document.getElementById('viewerLoading');
+  frame.style.display = 'none';
+  loading.style.display = '';
+  frame.onload = () => {
+    loading.style.display = 'none';
+    frame.style.display = '';
+  };
+  frame.src = API + '/api/notes/' + id + '/view?token=' + token;
+}
+
+function closeViewer() {
+  document.getElementById('viewerModal').classList.add('hidden');
+  const frame = document.getElementById('viewerFrame');
+  frame.src = '';
+  frame.style.display = 'none';
+  document.getElementById('viewerLoading').style.display = '';
 }
 
 function downloadNote(id) {
