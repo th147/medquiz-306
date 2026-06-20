@@ -360,6 +360,7 @@ app.post('/api/notes', authMiddleware, adminMiddleware, upload.single('file'), (
 });
 
 // Inline view (any logged-in user, supports token in query param)
+// PDF/Word: redirect to Google Docs Viewer; images/text: served directly
 app.get('/api/notes/:id/view', (req, res) => {
   try {
     const token = req.query.token;
@@ -371,8 +372,8 @@ app.get('/api/notes/:id/view', (req, res) => {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
     const ext = path.extname(note.original_name).toLowerCase();
 
-    // Word docs: redirect to Google Docs Viewer
-    if (ext === '.docx' || ext === '.doc') {
+    // PDF & Word: redirect to Google Docs Viewer (avoids mobile download dialogs)
+    if (ext === '.pdf' || ext === '.docx' || ext === '.doc') {
       const pubToken = jwt.sign({ noteId: note.id }, JWT_SECRET, { expiresIn: '30m' });
       const pubUrl = `https://${req.get('host')}/api/pub/notes/${note.id}?token=${pubToken}`;
       const gdvUrl = 'https://docs.google.com/viewer?url=' + encodeURIComponent(pubUrl) + '&embedded=true';
@@ -380,7 +381,6 @@ app.get('/api/notes/:id/view', (req, res) => {
     }
 
     const mimeMap = {
-      '.pdf': 'application/pdf',
       '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8',
       '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
       '.gif': 'image/gif', '.webp': 'image/webp'
@@ -406,6 +406,7 @@ app.get('/api/pub/notes/:id', (req, res) => {
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
     const ext = path.extname(note.original_name).toLowerCase();
     const mimeMap = {
+      '.pdf': 'application/pdf',
       '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       '.doc': 'application/msword'
     };

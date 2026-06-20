@@ -1776,19 +1776,50 @@ function uploadNote() {
   input.click();
 }
 
-function viewNote(id) {
+async function viewNote(id) {
   const note = notesCache.find(n => n.id === id);
   const title = note ? note.original_name : '笔记预览';
+  const ext = (title || '').split('.').pop().toLowerCase();
+
   document.getElementById('viewerTitle').textContent = title;
   document.getElementById('viewerModal').classList.remove('hidden');
   const frame = document.getElementById('viewerFrame');
   const loading = document.getElementById('viewerLoading');
   frame.style.display = 'none';
+  frame.srcdoc = '';
   loading.style.display = '';
-  frame.onload = () => {
-    loading.style.display = 'none';
-    frame.style.display = '';
-  };
+
+  // Images: fetch as blob → blob URL → iframe (no download dialog)
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+    try {
+      const resp = await fetch(API + '/api/notes/' + id + '/view?token=' + token);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      frame.onload = () => { loading.style.display = 'none'; frame.style.display = ''; };
+      frame.src = url;
+    } catch(e) {
+      loading.innerHTML = '加载失败: ' + e.message;
+    }
+    return;
+  }
+
+  // Text: fetch content → srcdoc (no download dialog)
+  if (['txt', 'md'].includes(ext)) {
+    try {
+      const resp = await fetch(API + '/api/notes/' + id + '/view?token=' + token);
+      const text = await resp.text();
+      frame.srcdoc = `<html><head><meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;padding:20px;line-height:1.8;white-space:pre-wrap;word-break:break-word;font-size:15px;background:#fff;color:#333}</style></head><body>${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</body></html>`;
+      loading.style.display = 'none';
+      frame.style.display = '';
+    } catch(e) {
+      loading.innerHTML = '加载失败: ' + e.message;
+    }
+    return;
+  }
+
+  // PDF/Word: Google Docs Viewer via /view redirect (server handles the redirect)
+  frame.onload = () => { loading.style.display = 'none'; frame.style.display = ''; };
+  frame.onerror = () => { loading.innerHTML = '<div style="text-align:center"><p>预览加载失败</p><p style="font-size:12px;color:#aaa">Google Docs 可能被网络限制，请联系管理员下载查看</p></div>'; };
   frame.src = API + '/api/notes/' + id + '/view?token=' + token;
 }
 
@@ -1796,6 +1827,7 @@ function closeViewer() {
   document.getElementById('viewerModal').classList.add('hidden');
   const frame = document.getElementById('viewerFrame');
   frame.src = '';
+  frame.srcdoc = '';
   frame.style.display = 'none';
   document.getElementById('viewerLoading').style.display = '';
 }
