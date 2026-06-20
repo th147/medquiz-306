@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
+const { execSync } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -529,6 +530,65 @@ app.post('/api/comments/:id/favorite', authMiddleware, (req, res) => {
   } else {
     db.prepare('INSERT INTO comment_favorites (user_id,comment_id) VALUES (?,?)').run(req.user.id, req.params.id);
     res.json({ favorited: true, message: '已收藏' });
+  }
+});
+
+// ── PDF Page Images (server-side rendering via pdftoppm) ────
+app.get('/api/notes/:id/pages/count', (req, res) => {
+  try {
+    const token = req.query.token;
+    if (!token) return res.status(401).json({ error: '未登录' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const note = db.prepare('SELECT * FROM notes WHERE id=?').get(req.params.id);
+    if (!note) return res.status(404).json({ error: '笔记不存在' });
+    const ext = path.extname(note.original_name).toLowerCase();
+    if (ext !== '.pdf') return res.json({ pages: 0 });
+    const filePath = path.join(notesDir, note.filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+
+    const info = execSync(`pdfinfo "${filePath}" 2>/dev/null | grep Pages | awk '{print $2}'`, { timeout: 5000 }).toString().trim();
+    const pages = parseInt(info) || 1;
+    if (isNaN(pages) || pages < 1) return res.json({ pages: 1 });
+    res.json({ pages });
+  } catch(e) {
+    res.json({ pages: 1 });
+  }
+});
+
+app.get('/api/notes/:id/pages/:pageNum', (req, res) => {
+  try {
+    const token = req.query.token;
+    if (!token) return res.status(401).json({ error: '未登录' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const note = db.prepare('SELECT * FROM notes WHERE id=?').get(req.params.id);
+    if (!note) return res.status(404).json({ error: '笔记不存在' });
+    const ext = path.extname(note.original_name).toLowerCase();
+    if (ext !== '.pdf') return res.status(400).json({ error: '仅支持PDF' });
+    const filePath = path.join(notesDir, note.filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+
+    const pageNum = parseInt(req.params.pageNum);
+    if (isNaN(pageNum) || pageNum < 1) return res.status(400).json({ error: '页码无效' });
+
+    // Use pdftoppm to convert single page to PNG
+    const tmpDir = '/tmp/pdf_pages';
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+    const prefix = 'note_' + note.id + '_p' + pageNum + '_' + Date.now();
+    execSync(`pdftoppm -png -f ${pageNum} -l ${pageNum} -r 150 "${filePath}" "${tmpDir}/${prefix}"`, { timeout: 15000 });
+    
+    const imgFile = fs.readdirSync(tmpDir).find(f => f.startsWith(prefix));
+    if (!imgFile) return res.status(500).json({ error: 'PDF转换失败' });
+    
+    const imgPath = path.join(tmpDir, imgFile);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    const stream = fs.createReadStream(imgPath);
+    stream.on('end', () => {
+      try { fs.unlinkSync(imgPath); } catch(e) {}
+    });
+    stream.pipe(res);
+  } catch(e) {
+    return res.status(500).json({ error: 'PDF处理失败: ' + e.message });
   }
 });
 

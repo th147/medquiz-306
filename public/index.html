@@ -791,18 +791,17 @@ body.no-screenshot img {
       <span>加载中...</span>
     </div>
     <iframe id="viewerFrame" style="display:none" allowfullscreen></iframe>
-    <div id="pdfViewer" style="display:none;width:100%;height:100%;overflow-y:auto;background:#525659;text-align:center">
-      <canvas id="pdfCanvas" style="max-width:100%;height:auto;margin:0 auto"></canvas>
-      <div id="pdfControls" style="display:flex;align-items:center;justify-content:center;gap:12px;padding:10px;background:rgba(0,0,0,.6);position:absolute;bottom:0;left:0;right:0;z-index:1">
-        <button onclick="pdfPrevPage()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">&lt;</button>
+    <div id="pdfViewer" style="display:none;width:100%;height:100%;overflow-y:auto;background:#525659">
+      <div id="pdfPages" style="text-align:center"></div>
+      <div id="pdfControls" style="display:none;align-items:center;justify-content:center;gap:12px;padding:10px 0 20px;position:sticky;bottom:0;background:rgba(0,0,0,.6);z-index:1">
+        <button onclick="pdfPrevPage()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">上一页</button>
         <span id="pdfPageInfo" style="color:#fff;font-size:13px">1/1</span>
-        <button onclick="pdfNextPage()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">&gt;</button>
+        <button onclick="pdfNextPage()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">下一页</button>
       </div>
     </div>
   </div>
 </div>
 
-<script src="/js/pdf.min.js"></script>
 <script>
 // ── State ──
 const API = '';
@@ -816,7 +815,7 @@ let quizState = null;
 let authMode = 'login';
 let regAvatarFile = null;
 let notesCache = [];
-let pdfState = null; // { pdfDoc, currentPage, totalPages }
+let pdfState = null; // { currentPage, totalPages, noteId }
 
 // ── Helpers ──
 function showToast(msg, type='') {
@@ -1800,28 +1799,19 @@ async function viewNote(id) {
   pdfViewer.style.display = 'none';
   loading.style.display = '';
 
-  // PDF: use PDF.js canvas renderer (no download dialog, works everywhere)
+  // PDF: server-side render → PNG images (never triggers download)
   if (ext === 'pdf') {
-    // Set a timeout — 15 seconds max
-    const timeoutId = setTimeout(() => {
-      loading.innerHTML = '<div style="text-align:center;color:#fff;padding:40px"><p>PDF加载超时</p><p style="font-size:12px;color:#aaa;margin-top:8px">文件较大或网络较慢，请重试</p></div>';
-    }, 15000);
     try {
-      pdfState = null;
-      const resp = await fetch(API + '/api/notes/' + id + '/view?token=' + token);
-      if (!resp.ok) throw new Error('服务器返回 ' + resp.status);
-      const arrayBuf = await resp.arrayBuffer();
-      // Disable worker — run on main thread to avoid worker loading issues
-      pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-      const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
-      clearTimeout(timeoutId);
-      pdfState = { pdfDoc, currentPage: 1, totalPages: pdfDoc.numPages };
-      document.getElementById('pdfControls').style.display = pdfDoc.numPages > 1 ? 'flex' : 'none';
-      await renderPdfPage(1);
+      const countResp = await fetch(API + '/api/notes/' + id + '/pages/count?token=' + token);
+      const countData = await countResp.json();
+      const totalPages = countData.pages || 1;
+      pdfState = { currentPage: 1, totalPages: totalPages, noteId: id };
+      document.getElementById('pdfControls').style.display = totalPages > 1 ? 'flex' : 'none';
+      document.getElementById('pdfPageInfo').textContent = '1/' + totalPages;
       loading.style.display = 'none';
       pdfViewer.style.display = '';
+      await loadPdfPage(1);
     } catch(e) {
-      clearTimeout(timeoutId);
       loading.innerHTML = '<div style="text-align:center;color:#fff;padding:40px"><p>PDF加载失败</p><p style="font-size:12px;color:#aaa;margin-top:8px">' + (e.message || '未知错误') + '</p></div>';
     }
     return;
@@ -1861,27 +1851,28 @@ async function viewNote(id) {
   frame.src = API + '/api/notes/' + id + '/view?token=' + token;
 }
 
-async function renderPdfPage(pageNum) {
+async function loadPdfPage(pageNum) {
   if (!pdfState) return;
-  const canvas = document.getElementById('pdfCanvas');
-  const page = await pdfState.pdfDoc.getPage(pageNum);
-  const viewport = page.getViewport({ scale: 1.5 });
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-  const ctx = canvas.getContext('2d');
-  await page.render({ canvasContext: ctx, viewport }).promise;
+  const container = document.getElementById('pdfPages');
+  const img = document.createElement('img');
+  img.src = API + '/api/notes/' + pdfState.noteId + '/pages/' + pageNum + '?token=' + token;
+  img.style.cssText = 'max-width:100%;height:auto;display:block;margin:0 auto;box-shadow:0 4px 20px rgba(0,0,0,.3)';
+  img.alt = '第 ' + pageNum + ' 页';
+  container.innerHTML = '';
+  container.appendChild(img);
   pdfState.currentPage = pageNum;
   document.getElementById('pdfPageInfo').textContent = pageNum + '/' + pdfState.totalPages;
+  document.getElementById('pdfViewer').scrollTop = 0;
 }
 
 function pdfPrevPage() {
   if (!pdfState || pdfState.currentPage <= 1) return;
-  renderPdfPage(pdfState.currentPage - 1);
+  loadPdfPage(pdfState.currentPage - 1);
 }
 
 function pdfNextPage() {
   if (!pdfState || pdfState.currentPage >= pdfState.totalPages) return;
-  renderPdfPage(pdfState.currentPage + 1);
+  loadPdfPage(pdfState.currentPage + 1);
 }
 
 function closeViewer() {
