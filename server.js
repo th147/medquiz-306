@@ -370,18 +370,50 @@ app.get('/api/notes/:id/view', (req, res) => {
     const filePath = path.join(notesDir, note.filename);
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
     const ext = path.extname(note.original_name).toLowerCase();
+
+    // Word docs: redirect to Office Online viewer via temp public URL
+    if (ext === '.docx' || ext === '.doc') {
+      const pubToken = jwt.sign({ noteId: note.id }, JWT_SECRET, { expiresIn: '30m' });
+      const pubUrl = `${req.protocol}://${req.get('host')}/api/pub/notes/${note.id}?token=${pubToken}`;
+      const officeUrl = 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(pubUrl);
+      return res.redirect(officeUrl);
+    }
+
     const mimeMap = {
-      '.pdf': 'application/pdf', '.doc': 'application/msword',
-      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      '.txt': 'text/plain', '.md': 'text/markdown',
+      '.pdf': 'application/pdf',
+      '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8',
       '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
       '.gif': 'image/gif', '.webp': 'image/webp'
     };
     res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
     res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(note.original_name) + '"');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     fs.createReadStream(filePath).pipe(res);
   } catch(e) {
     return res.status(401).json({ error: '登录已过期' });
+  }
+});
+
+// Public access for Office Online Viewer (temporary signed token)
+app.get('/api/pub/notes/:id', (req, res) => {
+  try {
+    const token = req.query.token;
+    if (!token) return res.status(401).json({ error: '无效链接' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const note = db.prepare('SELECT * FROM notes WHERE id=?').get(decoded.noteId);
+    if (!note) return res.status(404).json({ error: '笔记不存在' });
+    const filePath = path.join(notesDir, note.filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+    const ext = path.extname(note.original_name).toLowerCase();
+    const mimeMap = {
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.doc': 'application/msword'
+    };
+    res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    fs.createReadStream(filePath).pipe(res);
+  } catch(e) {
+    return res.status(401).json({ error: '链接已过期，请重新打开' });
   }
 });
 
