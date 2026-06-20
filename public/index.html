@@ -410,13 +410,26 @@ body.no-screenshot img {
 }
 .watermark-overlay {
   position: fixed; inset: 0; z-index: 9998; pointer-events: none;
-  opacity: 0.06; font-size: 16px; font-weight: 700;
+  opacity: 0.10; font-size: 16px; font-weight: 700;
   color: #000; white-space: pre-wrap; line-height: 2.2;
   display: flex; flex-wrap: wrap; align-content: flex-start;
   overflow: hidden; user-select: none; -webkit-user-select: none;
 }
 .watermark-overlay span {
   padding: 20px 40px; transform: rotate(-25deg);
+}
+
+/* ── Security Warning Banner ── */
+.security-banner{
+  background: linear-gradient(90deg, #c0392b, #e74c3c, #c0392b);
+  color: #fff; text-align: center; padding: 8px 16px;
+  font-size: 13px; font-weight: 700; letter-spacing: 1px;
+  position: sticky; top: 56px; z-index: 98;
+  animation: securityPulse 2s ease-in-out infinite;
+}
+@keyframes securityPulse{
+  0%,100%{opacity:1}
+  50%{opacity:0.85}
 }
 
 /* ── Notes Tab ── */
@@ -530,6 +543,8 @@ body.no-screenshot img {
     </div>
   </header>
 
+  <div id="securityBanner" class="security-banner">&#9888; 安全提醒：禁止截图、录屏和外传 · 截图已包含用户水印</div>
+
   <nav class="tab-nav" id="tabNav">
     <button data-tab="bank" class="active">
       <svg viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h6M6 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -597,6 +612,16 @@ body.no-screenshot img {
       </div>
       <label class="toggle-switch">
         <input type="checkbox" id="toggleWatermark" onchange="toggleWatermark()" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">安全提醒横幅</div>
+        <div class="settings-desc">顶栏下方显示红色闪烁安全提醒</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggleBanner" onchange="toggleBanner()" checked>
         <span class="slider"></span>
       </label>
     </div>
@@ -1548,6 +1573,7 @@ function openSettings() {
   document.getElementById('settingsModal').classList.remove('hidden');
   document.getElementById('toggleNoScreenshot').checked = localStorage.getItem('noScreenshot') !== 'false';
   document.getElementById('toggleWatermark').checked = localStorage.getItem('showWatermark') !== 'false';
+  document.getElementById('toggleBanner').checked = localStorage.getItem('showBanner') !== 'false';
 }
 function closeSettings() {
   document.getElementById('settingsModal').classList.add('hidden');
@@ -1586,6 +1612,13 @@ function toggleWatermark() {
   } else {
     if (wm) wm.style.display = 'none';
   }
+}
+
+function toggleBanner() {
+  const enabled = document.getElementById('toggleBanner').checked;
+  localStorage.setItem('showBanner', enabled);
+  const banner = document.getElementById('securityBanner');
+  if (banner) banner.style.display = enabled ? '' : 'none';
 }
 
 function buildWatermarkText() {
@@ -1628,6 +1661,41 @@ function initAntiScreenshot() {
     div.className = 'watermark-overlay';
     div.innerHTML = buildWatermarkText();
     document.body.appendChild(div);
+  }
+  // Detect visibility change (app switching - possible screenshot)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // User switched away - possible screenshot moment
+      sessionStorage.setItem('lastHidden', Date.now());
+    }
+  });
+  // Detect window blur (app lost focus)
+  window.addEventListener('blur', () => {
+    sessionStorage.setItem('lastBlur', Date.now());
+  });
+  window.addEventListener('pagehide', () => {
+    sessionStorage.setItem('lastHidden', Date.now());
+  });
+  // Refresh watermark periodically to prevent overlay removal
+  setInterval(() => {
+    const wm = document.getElementById('watermarkLayer');
+    const showWM = localStorage.getItem('showWatermark');
+    if (showWM !== 'false' && !wm) {
+      const div = document.createElement('div');
+      div.id = 'watermarkLayer';
+      div.className = 'watermark-overlay';
+      div.innerHTML = buildWatermarkText();
+      document.body.appendChild(div);
+    }
+    // Ensure no-screenshot class stays
+    if (localStorage.getItem('noScreenshot') !== 'false') {
+      document.body.classList.add('no-screenshot');
+    }
+  }, 3000);
+  // Init banner
+  if (localStorage.getItem('showBanner') === 'false') {
+    const banner = document.getElementById('securityBanner');
+    if (banner) banner.style.display = 'none';
   }
 }
 
