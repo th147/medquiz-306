@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="description" content="一研为定 · 考研智能刷题平台，包含历年真题、章节练习、自我评估等功能">
 <meta name="author" content="yiyanweiding">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self' blob:; worker-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self' blob:">
 <title>一研为定 · 智能刷题平台</title>
 <style>
 /* ── 医考帮风格 活力配色 ── */
@@ -804,7 +804,6 @@ body.no-screenshot img {
 
 <script src="/js/pdf.min.js"></script>
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js';
 // ── State ──
 const API = '';
 let token = localStorage.getItem('medquiz_token');
@@ -1803,19 +1802,27 @@ async function viewNote(id) {
 
   // PDF: use PDF.js canvas renderer (no download dialog, works everywhere)
   if (ext === 'pdf') {
+    // Set a timeout — 15 seconds max
+    const timeoutId = setTimeout(() => {
+      loading.innerHTML = '<div style="text-align:center;color:#fff;padding:40px"><p>PDF加载超时</p><p style="font-size:12px;color:#aaa;margin-top:8px">文件较大或网络较慢，请重试</p></div>';
+    }, 15000);
     try {
       pdfState = null;
       const resp = await fetch(API + '/api/notes/' + id + '/view?token=' + token);
       if (!resp.ok) throw new Error('服务器返回 ' + resp.status);
       const arrayBuf = await resp.arrayBuffer();
+      // Disable worker — run on main thread to avoid worker loading issues
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '';
       const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+      clearTimeout(timeoutId);
       pdfState = { pdfDoc, currentPage: 1, totalPages: pdfDoc.numPages };
       document.getElementById('pdfControls').style.display = pdfDoc.numPages > 1 ? 'flex' : 'none';
       await renderPdfPage(1);
       loading.style.display = 'none';
       pdfViewer.style.display = '';
     } catch(e) {
-      loading.innerHTML = '<div style="text-align:center;color:#fff;padding:40px"><p>PDF加载失败</p><p style="font-size:12px;color:#aaa;margin-top:8px">' + e.message + '</p></div>';
+      clearTimeout(timeoutId);
+      loading.innerHTML = '<div style="text-align:center;color:#fff;padding:40px"><p>PDF加载失败</p><p style="font-size:12px;color:#aaa;margin-top:8px">' + (e.message || '未知错误') + '</p></div>';
     }
     return;
   }
