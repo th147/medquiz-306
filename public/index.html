@@ -131,53 +131,89 @@ body{
 .topbar .btn-logout{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 14px;border-radius:16px;font-size:12px;cursor:pointer;transition:var(--transition);font-family:inherit}
 .topbar .btn-logout:hover{background:rgba(255,255,255,.28)}
 
-/* ── Tab Nav ── */
-.tab-nav{
-  display:flex;background:var(--white);
-  position:fixed;bottom:0;left:0;right:0;z-index:99;
-  box-shadow:0 -2px 16px rgba(0,0,0,.08);
-  padding:0;border-top:1px solid var(--border);
-  justify-content:space-around;
-}
-.tab-nav button{
-  flex:1;max-width:80px;padding:8px 0 6px;border:none;background:none;
-  font-size:11px;color:var(--text-light);cursor:pointer;
-  font-family:inherit;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:3px;
-  transition:var(--transition);position:relative;
+/* ── Hamburger ── */
+.hamburger{
+  display:flex;flex-direction:column;gap:4px;padding:6px;cursor:pointer;
+  background:none;border:none;margin-right:8px;outline:none;
   -webkit-tap-highlight-color:transparent;
 }
-.tab-nav button svg{width:22px;height:22px;opacity:.5;transition:var(--transition)}
-.tab-nav button .tab-dot{
-  width:4px;height:4px;border-radius:50%;position:absolute;top:4px;
-  transition:var(--transition);opacity:0;
+.hamburger span{
+  display:block;width:20px;height:2px;background:#fff;border-radius:2px;
+  transition:var(--transition);transform-origin:center;
 }
-.tab-nav button.active{font-weight:700}
-.tab-nav button.active svg{opacity:1}
-.tab-nav button.active .tab-dot{opacity:1}
-/* Tab 0: 题库 - blue */
-.tab-nav button[data-tab="bank"] .tab-dot{background:#4A90D9}
-.tab-nav button[data-tab="bank"].active{color:#4A90D9}
-.tab-nav button[data-tab="bank"].active svg{color:#4A90D9}
-/* Tab 1: 刷题 - green */
-.tab-nav button[data-tab="quiz"] .tab-dot{background:#27AE60}
-.tab-nav button[data-tab="quiz"].active{color:#27AE60}
-.tab-nav button[data-tab="quiz"].active svg{color:#27AE60}
-/* Tab 2: 薄弱点 - orange */
-.tab-nav button[data-tab="stats"] .tab-dot{background:#E67E22}
-.tab-nav button[data-tab="stats"].active{color:#E67E22}
-.tab-nav button[data-tab="stats"].active svg{color:#E67E22}
-/* Tab 3: 笔记 - purple */
-.tab-nav button[data-tab="notes"] .tab-dot{background:#8E44AD}
-.tab-nav button[data-tab="notes"].active{color:#8E44AD}
-.tab-nav button[data-tab="notes"].active svg{color:#8E44AD}
-/* Tab 4: 管理 - red */
-.tab-nav button[data-tab="admin"] .tab-dot{background:#E74C3C}
-.tab-nav button[data-tab="admin"].active{color:#E74C3C}
-.tab-nav button[data-tab="admin"].active svg{color:#E74C3C}
+.hamburger.open span:nth-child(1){transform:translateY(6px) rotate(45deg)}
+.hamburger.open span:nth-child(2){opacity:0}
+.hamburger.open span:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+
+/* ── Side Drawer ── */
+.drawer-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.drawer-overlay.open{opacity:1;pointer-events:auto}
+
+.drawer{
+  position:fixed;top:0;left:0;bottom:0;width:260px;z-index:201;
+  background:var(--white);box-shadow:4px 0 24px rgba(0,0,0,.15);
+  transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+}
+.drawer.open{transform:translateX(0)}
+
+.drawer-header{
+  padding:20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+  background:linear-gradient(135deg, #4A90D9, #2B6CB0);
+  color:#fff;
+}
+.drawer-header .brand-icon{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center}
+.drawer-header .brand-icon svg{width:20px;height:20px}
+.drawer-header .brand-name{font-size:16px;font-weight:700}
+.drawer-nav{flex:1;overflow-y:auto;padding:8px 0}
+.drawer-nav button{
+  display:flex;align-items:center;gap:14px;width:100%;
+  padding:14px 24px;border:none;background:none;
+  font-size:15px;color:var(--text);cursor:pointer;
+  font-family:inherit;transition:var(--transition);
+  -webkit-tap-highlight-color:transparent;
+  border-left:3px solid transparent;
+}
+.drawer-nav button svg{width:22px;height:22px;opacity:.5;transition:var(--transition);flex-shrink:0}
+.drawer-nav button:hover{background:var(--bg)}
+.drawer-nav button.active{
+  font-weight:700;color:var(--primary);
+  background:var(--primary-light);border-left-color:var(--primary);
+}
+.drawer-nav button.active svg{opacity:1;color:var(--primary)}
+.drawer-nav .drawer-admin-item{display:none}
+.drawer-footer{
+  padding:16px 24px;border-top:1px solid var(--border);
+  display:flex;flex-direction:column;gap:8px;
+}
+.drawer-footer .drawer-user{
+  display:flex;align-items:center;gap:10px;
+  font-size:13px;color:var(--text);font-weight:600;
+}
+.drawer-footer .drawer-user .avatar-drawer{
+  width:36px;height:36px;border-radius:50%;
+  background:var(--primary-light);display:flex;align-items:center;
+  justify-content:center;font-size:16px;font-weight:700;color:var(--primary);
+  overflow:hidden;
+}
+.drawer-footer .drawer-user .avatar-drawer img{width:100%;height:100%;object-fit:cover}
+.drawer-footer .drawer-actions{display:flex;gap:8px}
+.drawer-footer .btn-drawer{
+  flex:1;padding:8px 0;border-radius:8px;font-size:12px;
+  border:1px solid var(--border);background:var(--white);
+  color:var(--text-light);cursor:pointer;font-family:inherit;
+  transition:var(--transition);text-align:center;
+}
+.drawer-footer .btn-drawer:hover{background:var(--bg);color:var(--text)}
+.drawer-footer .btn-drawer.danger{color:var(--red);border-color:var(--red-bg)}
+.drawer-footer .btn-drawer.danger:hover{background:var(--red-bg)}
 
 /* ── Main Content ── */
-.main-content{padding:16px 20px 80px;max-width:960px;margin:0 auto;width:100%}
+.main-content{padding:16px 20px;max-width:960px;margin:0 auto;width:100%}
 
 /* ── Cards ── */
 .card{
@@ -428,9 +464,7 @@ body{
 .badge-orange{background:var(--orange);color:var(--white)}
 .badge-purple{background:var(--purple);color:var(--white)}
 @media(min-width:768px){
-  .main-content{padding:24px 28px 90px}
-  .tab-nav button{font-size:12px;max-width:100px;padding:10px 0 8px}
-  .tab-nav button svg{width:24px;height:24px}
+  .main-content{padding:24px 28px}
   .stat-box .num{font-size:36px}
   .quiz-question{font-size:17px}
 }
@@ -653,46 +687,63 @@ body.no-screenshot img {
 <!-- ── App Shell ── -->
 <div id="appShell" class="app-shell hidden">
   <header class="topbar">
+    <button class="hamburger" id="hamburgerBtn" onclick="toggleDrawer()" aria-label="菜单">
+      <span></span><span></span><span></span>
+    </button>
     <div class="brand">
       <svg viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="7" fill="rgba(255,255,255,.25)"/><path d="M14 7c-3.9 0-7 3.1-7 7s3.1 7 7 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="14" r="2.5" fill="#fff"/></svg>
       一研为定
     </div>
     <div class="user-area">
       <div class="avatar" id="displayAvatar" onclick="uploadAvatar()" title="点击上传头像"></div>
-      <button class="btn-logout" onclick="logout()">退出</button>
-      <button class="btn-logout" onclick="openSettings()" title="设置" style="padding:6px 10px;font-size:14px">&#9881;</button>
     </div>
   </header>
 
   <div id="securityBanner" class="security-banner">&#9888; 安全提醒：禁止截图、录屏和外传 · 截图已包含用户水印</div>
 
-  <nav class="tab-nav" id="tabNav">
-    <button data-tab="bank" class="active">
-      <span class="tab-dot"></span>
-      <svg viewBox="0 0 22 22" fill="none"><rect x="2" y="2" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M7 8h8M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-      题库
-    </button>
-    <button data-tab="quiz">
-      <span class="tab-dot"></span>
-      <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M8.5 11l1.5 1.5 3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      刷题
-    </button>
-    <button data-tab="stats">
-      <span class="tab-dot"></span>
-      <svg viewBox="0 0 22 22" fill="none"><rect x="2" y="11" width="3.5" height="9" rx="1" fill="currentColor" opacity=".4"/><rect x="9.25" y="5" width="3.5" height="15" rx="1" fill="currentColor" opacity=".7"/><rect x="16.5" y="2" width="3.5" height="18" rx="1" fill="currentColor"/></svg>
-      薄弱点
-    </button>
-    <button data-tab="notes">
-      <span class="tab-dot"></span>
-      <svg viewBox="0 0 22 22" fill="none"><rect x="3.5" y="1.5" width="15" height="19" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 6h8M7 9.5h8M7 13h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-      笔记
-    </button>
-    <button data-tab="admin" id="adminTab" style="display:none">
-      <span class="tab-dot"></span>
-      <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="7" r="3" fill="currentColor"/><path d="M5 18c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      管理
-    </button>
-  </nav>
+  <!-- Side Drawer -->
+  <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer()"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="brand-icon">
+        <svg viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="7" fill="rgba(255,255,255,.25)"/><path d="M14 7c-3.9 0-7 3.1-7 7s3.1 7 7 7" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="14" r="2.5" fill="#fff"/></svg>
+      </div>
+      <span class="brand-name">一研为定</span>
+    </div>
+    <nav class="drawer-nav" id="drawerNav">
+      <button data-tab="bank" class="active">
+        <svg viewBox="0 0 22 22" fill="none"><rect x="2" y="2" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M7 8h8M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        题库
+      </button>
+      <button data-tab="quiz">
+        <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M8.5 11l1.5 1.5 3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        刷题
+      </button>
+      <button data-tab="stats">
+        <svg viewBox="0 0 22 22" fill="none"><rect x="2" y="11" width="3.5" height="9" rx="1" fill="currentColor" opacity=".4"/><rect x="9.25" y="5" width="3.5" height="15" rx="1" fill="currentColor" opacity=".7"/><rect x="16.5" y="2" width="3.5" height="18" rx="1" fill="currentColor"/></svg>
+        薄弱点
+      </button>
+      <button data-tab="notes">
+        <svg viewBox="0 0 22 22" fill="none"><rect x="3.5" y="1.5" width="15" height="19" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 6h8M7 9.5h8M7 13h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        笔记
+      </button>
+      <button data-tab="admin" class="drawer-admin-item" id="drawerAdminItem">
+        <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="7" r="3" fill="currentColor"/><path d="M5 18c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        管理
+      </button>
+    </nav>
+    <div class="drawer-footer">
+      <div class="drawer-user">
+        <div class="avatar-drawer" id="drawerAvatar"></div>
+        <span id="drawerNickname"></span>
+      </div>
+      <div class="drawer-actions">
+        <button class="btn-drawer" onclick="uploadAvatar()">更换头像</button>
+        <button class="btn-drawer" onclick="openSettings()">设置</button>
+        <button class="btn-drawer danger" onclick="logout()">退出登录</button>
+      </div>
+    </div>
+  </aside>
 
   <main class="main-content" id="mainContent"></main>
 </div>
@@ -872,6 +923,7 @@ function logout() {
 async function showApp() {
   document.getElementById('authPage').classList.add('hidden');
   document.getElementById('appShell').classList.remove('hidden');
+  // Topbar avatar
   const av = document.getElementById('displayAvatar');
   if (user.avatar) {
     av.innerHTML = `<img src="${user.avatar}" class="avatar-img" alt="头像" onclick="uploadAvatar()">`;
@@ -880,8 +932,16 @@ async function showApp() {
     av.textContent = (user.nickname || user.username)[0].toUpperCase();
     av.onclick = () => uploadAvatar();
   }
-  if (user.is_admin) document.getElementById('adminTab').style.display = '';
-  else document.getElementById('adminTab').style.display = 'none';
+  // Drawer avatar & nickname
+  const da = document.getElementById('drawerAvatar');
+  if (user.avatar) {
+    da.innerHTML = `<img src="${user.avatar}" alt="头像">`;
+  } else {
+    da.textContent = (user.nickname || user.username)[0].toUpperCase();
+  }
+  document.getElementById('drawerNickname').textContent = user.nickname || user.username;
+  // Admin tab in drawer
+  document.getElementById('drawerAdminItem').style.display = user.is_admin ? '' : 'none';
 
   await loadData();
   setupTabs();
@@ -903,18 +963,41 @@ async function loadData() {
 }
 
 function setupTabs() {
-  document.getElementById('tabNav').addEventListener('click', e => {
+  document.getElementById('drawerNav').addEventListener('click', e => {
     const btn = e.target.closest('button');
     if (!btn) return;
     switchTab(btn.dataset.tab);
+    closeDrawer();
   });
+}
+
+function toggleDrawer() {
+  const drawer = document.getElementById('drawer');
+  const overlay = document.getElementById('drawerOverlay');
+  const hamburger = document.getElementById('hamburgerBtn');
+  const isOpen = drawer.classList.contains('open');
+  if (isOpen) {
+    drawer.classList.remove('open');
+    overlay.classList.remove('open');
+    hamburger.classList.remove('open');
+  } else {
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+    hamburger.classList.add('open');
+  }
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.getElementById('hamburgerBtn').classList.remove('open');
 }
 
 function switchTab(tab) {
   currentTab = tab;
   quizState = null;
-  document.querySelectorAll('#tabNav button').forEach(b => b.classList.remove('active'));
-  const btn = document.querySelector(`#tabNav button[data-tab="${tab}"]`);
+  document.querySelectorAll('#drawerNav button').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`#drawerNav button[data-tab="${tab}"]`);
   if (btn) btn.classList.add('active');
 
   if (tab === 'bank') renderBank();
@@ -1933,6 +2016,8 @@ function uploadAvatar() {
       if (av) {
         av.innerHTML = `<img src="${user.avatar}" class="avatar-img" alt="头像" onclick="uploadAvatar()">`;
       }
+      const da = document.getElementById('drawerAvatar');
+      if (da) da.innerHTML = `<img src="${user.avatar}" alt="头像">`;
       showToast('头像已更新', 'success');
     } catch(e) { showToast('上传失败: ' + e.message, 'error'); }
   };
