@@ -394,6 +394,86 @@ body{
   .assess-row{flex-direction:column}
   .stat-row{flex-direction:column}
 }
+
+/* ── Anti-Screenshot Protection ── */
+body.no-screenshot {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-drag: none !important;
+}
+body.no-screenshot img {
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+.watermark-overlay {
+  position: fixed; inset: 0; z-index: 9998; pointer-events: none;
+  opacity: 0.06; font-size: 16px; font-weight: 700;
+  color: #000; white-space: pre-wrap; line-height: 2.2;
+  display: flex; flex-wrap: wrap; align-content: flex-start;
+  overflow: hidden; user-select: none; -webkit-user-select: none;
+}
+.watermark-overlay span {
+  padding: 20px 40px; transform: rotate(-25deg);
+}
+
+/* ── Notes Tab ── */
+.notes-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;
+}
+.note-card{
+  background:var(--card);border-radius:var(--radius);padding:18px;
+  box-shadow:var(--shadow);transition:var(--transition);
+  border:1.5px solid var(--border);display:flex;flex-direction:column;
+  cursor:default;
+}
+.note-card:hover{border-color:var(--teal);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+.note-card .note-icon{
+  width:44px;height:44px;border-radius:var(--radius-sm);display:flex;
+  align-items:center;justify-content:center;margin-bottom:12px;
+  font-size:18px;font-weight:700;
+}
+.note-card .note-icon.doc{background:#e3f2fd;color:#1a6b8a}
+.note-card .note-icon.pdf{background:#fdecea;color:#c0392b}
+.note-card .note-icon.img{background:#e8f5e9;color:#1d8a4e}
+.note-card .note-icon.txt{background:#fff8e1;color:#d4780a}
+.note-card .note-name{font-size:14px;font-weight:600;color:var(--navy);word-break:break-all;margin-bottom:4px}
+.note-card .note-meta{font-size:12px;color:var(--text-light);margin-bottom:12px}
+.note-card .note-actions{display:flex;gap:8px;margin-top:auto}
+.note-upload-zone{
+  border:2px dashed var(--border);border-radius:var(--radius);
+  padding:40px 20px;text-align:center;cursor:pointer;
+  transition:var(--transition);background:var(--bg);
+}
+.note-upload-zone:hover{border-color:var(--teal);background:#f5faf9}
+.note-upload-zone svg{width:40px;height:40px;opacity:.4;margin-bottom:10px}
+.note-upload-zone .upload-text{font-size:14px;color:var(--text-light)}
+.note-upload-zone .upload-hint{font-size:12px;color:var(--text-light);margin-top:4px;opacity:.7}
+
+/* ── Settings Modal ── */
+.settings-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 0;border-bottom:1px solid var(--border);
+}
+.settings-row:last-child{border-bottom:none}
+.settings-row .settings-label{font-size:14px;font-weight:600;color:var(--navy)}
+.settings-row .settings-desc{font-size:12px;color:var(--text-light);margin-top:2px}
+.toggle-switch{
+  position:relative;width:48px;height:26px;flex-shrink:0;
+}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-switch .slider{
+  position:absolute;cursor:pointer;inset:0;
+  background:var(--border);border-radius:26px;transition:var(--transition);
+}
+.toggle-switch .slider::before{
+  content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;
+  background:var(--white);border-radius:50%;transition:var(--transition);
+}
+.toggle-switch input:checked+.slider{background:var(--teal)}
+.toggle-switch input:checked+.slider::before{transform:translateX(22px)}
 </style>
 </head>
 <body>
@@ -446,6 +526,7 @@ body{
       <span id="displayNickname" style="font-size:13px"></span>
       <div class="avatar" id="displayAvatar"></div>
       <button class="btn-logout" onclick="logout()">退出</button>
+      <button class="btn-logout" onclick="openSettings()" title="设置" style="padding:6px 10px;font-size:14px">&#9881;</button>
     </div>
   </header>
 
@@ -465,6 +546,10 @@ body{
     <button data-tab="admin" id="adminTab" style="display:none">
       <svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="7" r="2" fill="currentColor"/><path d="M5 14c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       管理
+    </button>
+    <button data-tab="notes">
+      <svg viewBox="0 0 18 18" fill="none"><rect x="3" y="1" width="12" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 5h6M6 8h6M6 11h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      笔记
     </button>
   </nav>
 
@@ -487,6 +572,36 @@ body{
     <div class="btn-row">
       <button class="btn btn-outline btn-sm" onclick="closeEditModal()">取消</button>
       <button class="btn btn-teal btn-sm" onclick="saveQuestion()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>安全设置</h3>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">禁止截图</div>
+        <div class="settings-desc">阻止长按选择、右键菜单和拖拽，增加截图难度</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggleNoScreenshot" onchange="toggleAntiScreenshot()" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="settings-row">
+      <div>
+        <div class="settings-label">水印保护</div>
+        <div class="settings-desc">在页面上显示半透明水印，包含用户信息</div>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggleWatermark" onchange="toggleWatermark()" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-teal btn-sm" onclick="closeSettings()">关闭</button>
     </div>
   </div>
 </div>
@@ -578,6 +693,7 @@ async function showApp() {
   await loadData();
   setupTabs();
   switchTab('bank');
+  initAntiScreenshot();
 }
 
 async function loadData() {
@@ -612,6 +728,7 @@ function switchTab(tab) {
   else if (tab === 'quiz') renderQuizSetup();
   else if (tab === 'stats') renderStats();
   else if (tab === 'admin') renderAdmin();
+  else if (tab === 'notes') renderNotes();
 }
 
 // ── Bank Tab ──
@@ -624,7 +741,6 @@ function renderBank() {
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${user.is_admin ? `<button class="btn btn-teal btn-sm" onclick="openEditModal()">添加题目</button>` : ''}
       ${user.is_admin ? `<button class="btn btn-outline btn-sm" onclick="openImport()">批量导入</button>` : ''}
-      ${user.is_admin ? `<button class="btn btn-outline btn-sm" onclick="load2000Exam()">加载2000年真题</button>` : ''}
       <button class="btn btn-outline btn-sm" onclick="exportBank()">导出题库</button>
     </div>
   </div>`;
@@ -1327,6 +1443,192 @@ async function load2000Exam() {
     if (currentTab === 'bank') renderBank();
     else if (currentTab === 'quiz') renderQuizSetup();
   } catch(e) { showToast('加载失败: ' + e.message, 'error'); }
+}
+
+// ── Notes Tab ──
+async function renderNotes() {
+  const mc = document.getElementById('mainContent');
+  mc.innerHTML = `<div class="card">
+    <div class="card-header"><h2><svg viewBox="0 0 20 20" fill="none"><rect x="3" y="1" width="14" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 6h6M7 9h6M7 12h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>我的笔记</h2></div>
+    <div class="note-upload-zone" onclick="uploadNote()">
+      <svg viewBox="0 0 40 40" fill="none"><rect x="4" y="2" width="32" height="36" rx="4" stroke="currentColor" stroke-width="2"/><path d="M14 14h12M14 20h12M14 26h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <div class="upload-text">点击上传笔记</div>
+      <div class="upload-hint">支持 Word(.docx)、PDF、图片、TXT，最大 50MB</div>
+    </div>
+    <div style="margin-top:16px">
+      <div class="notes-grid" id="notesGrid">
+        <div style="text-align:center;padding:20px;color:var(--text-light);font-size:14px;grid-column:1/-1">
+          <svg viewBox="0 0 32 32" style="width:32px;height:32px;opacity:.4;animation:spin 1.5s linear infinite"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="60 28"/></svg>
+          <div style="margin-top:8px">加载笔记...</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  loadNotes();
+}
+
+async function loadNotes() {
+  try {
+    const notes = await api('/api/notes');
+    const grid = document.getElementById('notesGrid');
+    if (!grid) return;
+    if (notes.length === 0) {
+      grid.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-light);grid-column:1/-1">
+        <svg viewBox="0 0 48 48" style="width:48px;height:48px;opacity:.3"><rect x="8" y="4" width="32" height="40" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16h16M16 22h16M16 28h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <div style="margin-top:8px;font-size:14px">暂无笔记，点击上方区域上传</div>
+      </div>`;
+      return;
+    }
+    grid.innerHTML = notes.map(n => {
+      const ext = (n.original_name||'').split('.').pop().toLowerCase();
+      let iconCls = 'doc', iconLabel = 'DOC';
+      if (ext === 'pdf') { iconCls = 'pdf'; iconLabel = 'PDF'; }
+      else if (['png','jpg','jpeg','gif','webp'].includes(ext)) { iconCls = 'img'; iconLabel = 'IMG'; }
+      else if (['txt','md'].includes(ext)) { iconCls = 'txt'; iconLabel = 'TXT'; }
+      const sizeStr = n.file_size > 1024*1024 ? (n.file_size/1024/1024).toFixed(1)+'MB' : (n.file_size/1024).toFixed(0)+'KB';
+      const dateStr = (n.created_at||'').slice(0,10);
+      return `<div class="note-card">
+        <div class="note-icon ${iconCls}">${iconLabel}</div>
+        <div class="note-name">${n.original_name||n.filename}</div>
+        <div class="note-meta">${sizeStr} · ${dateStr}</div>
+        <div class="note-actions">
+          <button class="btn btn-outline btn-sm" onclick="downloadNote(${n.id})">下载</button>
+          <button class="btn btn-red btn-sm" onclick="deleteNote(${n.id})">删除</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    const grid = document.getElementById('notesGrid');
+    if (grid) grid.innerHTML = `<div style="text-align:center;padding:20px;color:var(--red);grid-column:1/-1">加载失败: ${e.message}</div>`;
+  }
+}
+
+function uploadNote() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.doc,.docx,.pdf,.txt,.md,.jpg,.jpeg,.png,.gif,.webp';
+  input.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 50*1024*1024) return showToast('文件大小不能超过50MB', 'error');
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await fetch(API + '/api/notes', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body: formData
+      }).then(r => r.json()).then(d => {
+        if (d.error) throw new Error(d.error);
+        showToast(d.message, 'success');
+        loadNotes();
+      });
+    } catch(e) { showToast('上传失败: ' + e.message, 'error'); }
+  };
+  input.click();
+}
+
+function downloadNote(id) {
+  const a = document.createElement('a');
+  a.href = API + '/api/notes/' + id + '/download?token=' + token;
+  a.click();
+}
+
+async function deleteNote(id) {
+  if (!confirm('确定要删除这条笔记吗？')) return;
+  try {
+    await api('/api/notes/' + id, { method: 'DELETE' });
+    showToast('笔记已删除', 'success');
+    loadNotes();
+  } catch(e) { showToast('删除失败: ' + e.message, 'error'); }
+}
+
+// ── Settings & Anti-Screenshot ──
+function openSettings() {
+  document.getElementById('settingsModal').classList.remove('hidden');
+  document.getElementById('toggleNoScreenshot').checked = localStorage.getItem('noScreenshot') !== 'false';
+  document.getElementById('toggleWatermark').checked = localStorage.getItem('showWatermark') !== 'false';
+}
+function closeSettings() {
+  document.getElementById('settingsModal').classList.add('hidden');
+}
+document.getElementById('settingsModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+
+function toggleAntiScreenshot() {
+  const enabled = document.getElementById('toggleNoScreenshot').checked;
+  localStorage.setItem('noScreenshot', enabled);
+  if (enabled) {
+    document.body.classList.add('no-screenshot');
+    document.addEventListener('contextmenu', preventContext);
+    document.addEventListener('keydown', preventKeys);
+  } else {
+    document.body.classList.remove('no-screenshot');
+    document.removeEventListener('contextmenu', preventContext);
+    document.removeEventListener('keydown', preventKeys);
+  }
+}
+
+function toggleWatermark() {
+  const enabled = document.getElementById('toggleWatermark').checked;
+  localStorage.setItem('showWatermark', enabled);
+  const wm = document.getElementById('watermarkLayer');
+  if (enabled) {
+    if (!wm) {
+      const div = document.createElement('div');
+      div.id = 'watermarkLayer';
+      div.className = 'watermark-overlay';
+      div.innerHTML = buildWatermarkText();
+      document.body.appendChild(div);
+    }
+    if (wm) wm.style.display = '';
+  } else {
+    if (wm) wm.style.display = 'none';
+  }
+}
+
+function buildWatermarkText() {
+  const name = user ? (user.nickname || user.username) : '用户';
+  const id = user ? user.id : '';
+  let text = '';
+  for (let i = 0; i < 200; i++) {
+    text += `<span>${name} · ID:${id} · 禁止外传</span>`;
+  }
+  return text;
+}
+
+function preventContext(e) { e.preventDefault(); return false; }
+function preventKeys(e) {
+  // Block PrintScreen, Ctrl+P, Ctrl+S, Ctrl+Shift+I, F12
+  if (e.key === 'PrintScreen' || e.key === 'F12' ||
+      (e.ctrlKey && e.key === 'p') ||
+      (e.ctrlKey && e.key === 's') ||
+      (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+      (e.ctrlKey && e.shiftKey && e.key === 'i') ||
+      (e.ctrlKey && e.shiftKey && e.key === 'J') ||
+      (e.ctrlKey && e.shiftKey && e.key === 'j') ||
+      (e.ctrlKey && e.key === 'u')) {
+    e.preventDefault();
+    return false;
+  }
+}
+
+function initAntiScreenshot() {
+  const noSS = localStorage.getItem('noScreenshot');
+  if (noSS !== 'false') {
+    document.body.classList.add('no-screenshot');
+    document.addEventListener('contextmenu', preventContext);
+    document.addEventListener('keydown', preventKeys);
+  }
+  const showWM = localStorage.getItem('showWatermark');
+  if (showWM !== 'false') {
+    const div = document.createElement('div');
+    div.id = 'watermarkLayer';
+    div.className = 'watermark-overlay';
+    div.innerHTML = buildWatermarkText();
+    document.body.appendChild(div);
+  }
 }
 
 // ── Init ──

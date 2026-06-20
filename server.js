@@ -3,7 +3,9 @@ const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -77,6 +79,15 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (question_id) REFERENCES questions(id)
   );
+  CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    filename TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    file_size INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
 `);
 
 // ── Migration: add year column if missing ──
@@ -91,31 +102,35 @@ const seedCodes = db.prepare('INSERT OR IGNORE INTO activation_codes (code) VALU
 const defaultCodes = ['MED306START','XIZONG306OK','306PASS2026','WESTMED001','DOCTOR306','MEDICAL25'];
 defaultCodes.forEach(c => seedCodes.run(c));
 
-// Seed sample questions
-const sampleCount = db.prepare('SELECT COUNT(*) as cnt FROM questions').get();
-if (sampleCount.cnt === 0) {
-  const insertQ = db.prepare('INSERT OR IGNORE INTO questions (id,chapter,type,question,options,answer,explanation,video_url) VALUES (?,?,?,?,?,?,?,?)');
-  const samples = [
-    {id:'q001',chapter:'呼吸系统',type:'A1',question:'关于肺循环特点的描述，错误的是',options:JSON.stringify(["A. 低压","B. 低阻","C. 高容","D. 高压"]),answer:'D',explanation:'肺循环特点：低压（压力仅为体循环的1/10）、低阻（血管短而宽）、高容（血容量大）。选项D「高压」与肺循环的低压特点矛盾，故错误。',video_url:''},
-    {id:'q002',chapter:'呼吸系统',type:'A1',question:'慢阻肺患者肺功能检查的特征性改变是',options:JSON.stringify(["A. FEV₁/FVC ↓","B. FEV₁/FVC ↑","C. TLC ↓","D. DLCO ↑"]),answer:'A',explanation:'慢阻肺属于阻塞性通气障碍，核心指标是FEV₁/FVC下降。TLC在限制性障碍中下降，DLCO在间质性肺病和肺血管病中下降。',video_url:''},
-    {id:'q003',chapter:'呼吸系统',type:'A1',question:'右主支气管的特点不包括',options:JSON.stringify(["A. 短","B. 粗","C. 陡直","D. 细长"]),answer:'D',explanation:'右主支气管特点：短、粗、陡、直，因此异物、插管过深更易进入右侧。「细长」是左主支气管的特点。',video_url:''},
-    {id:'q004',chapter:'呼吸系统',type:'A1',question:'关于黏液-纤毛运输系统的描述，正确的是',options:JSON.stringify(["A. 纤毛向肺泡方向摆动","B. 纤毛向咽部方向摆动","C. 属于化学防御","D. 属于免疫防御"]),answer:'B',explanation:'黏液-纤毛运输系统是物理防御中最关键的机制，纤毛像「自动传送带」朝咽部方向不停摆动，将粘了异物的黏液送到咽部。',video_url:''},
-    {id:'q005',chapter:'呼吸系统',type:'A1',question:'咳嗽按病程分类，急性咳嗽的病程是',options:JSON.stringify(["A. ≤ 1周","B. ≤ 3周","C. 3~8周","D. > 8周"]),answer:'B',explanation:'咳嗽按病程分为：急性咳嗽（≤3周）、亚急性咳嗽（3~8周）、慢性咳嗽（>8周）。',video_url:''},
-    {id:'q006',chapter:'呼吸系统',type:'A1',question:'铁锈色痰最常见于',options:JSON.stringify(["A. 肺炎链球菌肺炎","B. 肺炎克雷伯菌肺炎","C. 金黄色葡萄球菌肺炎","D. 支原体肺炎"]),answer:'A',explanation:'铁锈色痰是肺炎链球菌肺炎（大叶性肺炎）的经典标志。红棕色胶冻样痰见于肺炎克雷伯菌，巧克力色腥味痰见于肺阿米巴病。',video_url:''},
-    {id:'q007',chapter:'呼吸系统',type:'A1',question:'患者长期服用卡托普利后出现慢性咳嗽，最可能的原因是',options:JSON.stringify(["A. 上气道咳嗽综合征","B. 咳嗽变异性哮喘","C. ACEI药物性咳嗽","D. 胃食管反流病"]),answer:'C',explanation:'ACEI类药物（普利类，如卡托普利、依那普利）可引起药物性咳嗽，是慢性咳嗽五大病因之一，高频考点。',video_url:''},
-    {id:'q008',chapter:'呼吸系统',type:'A1',question:'大量咯血的诊断标准是 24h 咯血量超过',options:JSON.stringify(["A. 100ml","B. 300ml","C. 500ml","D. 1000ml"]),answer:'C',explanation:'小量咯血：24h<100ml；中量咯血：100~500ml/24h；大量咯血：24h>500ml或单次>100ml。大量咯血是急症，可堵塞气道导致窒息。',video_url:''},
-    {id:'q009',chapter:'呼吸系统',type:'A1',question:'三凹征见于',options:JSON.stringify(["A. 呼气性呼吸困难","B. 吸气性呼吸困难","C. 混合性呼吸困难","D. 心源性呼吸困难"]),answer:'B',explanation:'三凹征（胸骨上窝、锁骨上窝、肋间隙凹陷）是吸气性呼吸困难的特征性体征，提示大气道阻塞。',video_url:''},
-    {id:'q010',chapter:'呼吸系统',type:'A1',question:'肺栓塞诊断的金标准是',options:JSON.stringify(["A. 胸部X线","B. 胸部CT","C. CTPA","D. HRCT"]),answer:'C',explanation:'CTPA（CT肺血管造影）是肺栓塞诊断的金标准。HRCT是间质性肺病和支气管扩张症的金标准。',video_url:''},
-    {id:'q011',chapter:'呼吸系统',type:'A1',question:'长期口服糖皮质激素超过3个月，必须预防',options:JSON.stringify(["A. 糖尿病","B. 骨质疏松症","C. 高血压","D. 肾功能损害"]),answer:'B',explanation:'长期口服激素>3个月→必须用二膦酸盐预防骨质疏松症！每年都考！',video_url:''},
-    {id:'q012',chapter:'呼吸系统',type:'A1',question:'关于茶碱类药物的描述，错误的是',options:JSON.stringify(["A. 可舒张气道","B. 治疗窗窄","C. 安全性高","D. 易中毒"]),answer:'C',explanation:'茶碱类药是支气管扩张剂之一，但治疗窗窄，易中毒，安全性不高，需要监测血药浓度。考点！',video_url:''},
-    {id:'q013',chapter:'呼吸系统',type:'A1',question:'肺部听诊闻及Velcro啰音（撕魔术贴声），最常见于',options:JSON.stringify(["A. 慢阻肺","B. 支气管哮喘","C. 间质性肺病","D. 支气管扩张症"]),answer:'C',explanation:'Velcro啰音即细爆裂音，像捻搓头发或撕魔术贴声，吸气晚期出现，是间质性肺病、肺纤维化、早期心衰的特征性体征。',video_url:''},
-    {id:'q014',chapter:'呼吸系统',type:'A1',question:'关于肺功能检查，限制性通气障碍的特征是',options:JSON.stringify(["A. FEV₁/FVC ↓","B. FEV₁/FVC 正常或↑，TLC ↓","C. FEV₁/FVC ↓，TLC ↑","D. DLCO ↑"]),answer:'B',explanation:'限制性通气障碍：FEV₁和FVC成比例下降，比值正常或↑，但TLC（肺总量）↓。阻塞性：FEV₁/FVC ↓。',video_url:''},
-    {id:'q015',chapter:'呼吸系统',type:'A1',question:'混浊性呼吸音消失最常见于',options:JSON.stringify(["A. 支气管炎","B. 胸腔积液","C. 哮喘","D. 心衰"]),answer:'B',explanation:'呼吸音消失见于：气道完全堵死，或有大量胸腔积液/气胸把肺压没了。胸腔积液是常见原因。',video_url:''}
-  ];
-  const insertMany = db.transaction(() => {
-    samples.forEach(s => insertQ.run(s.id,s.chapter,s.type,s.question,s.options,s.answer,s.explanation,s.video_url));
-  });
-  insertMany();
+// Auto-seed 2000年真题 if database is empty
+const questionCount = db.prepare('SELECT COUNT(*) as cnt FROM questions').get();
+if (questionCount.cnt === 0) {
+  try {
+    const examPath = path.join(__dirname, 'public', '2000年真题.json');
+    if (fs.existsSync(examPath)) {
+      const examData = JSON.parse(fs.readFileSync(examPath, 'utf-8'));
+      const insertQ = db.prepare('INSERT OR IGNORE INTO questions (id,chapter,type,question,options,answer,explanation,video_url,year) VALUES (?,?,?,?,?,?,?,?,?)');
+      const insertMany = db.transaction(() => {
+        examData.forEach((item, i) => {
+          insertQ.run(
+            'q2000_' + (i + 1),
+            item.chapter || '西医综合',
+            item.type || 'A1',
+            item.question,
+            JSON.stringify(item.options),
+            item.answer,
+            item.explanation || '',
+            item.videoUrl || item.video_url || '',
+            item.year || '2000'
+          );
+        });
+      });
+      insertMany();
+      console.log(`  📝 自动导入2000年真题 ${examData.length} 道题`);
+    }
+  } catch(e) {
+    console.log('  ⚠️ 2000年真题自动导入失败:', e.message);
+  }
 }
 
 // ── Auth Middleware ──────────────────────────────────────────
@@ -277,6 +292,51 @@ app.get('/api/stats', authMiddleware, (req, res) => {
   });
 
   res.json({ total, done, chapterStats });
+});
+
+// ── Notes ────────────────────────────────────────────────────
+const notesDir = path.join(__dirname, 'public', 'uploads', 'notes');
+if (!fs.existsSync(notesDir)) fs.mkdirSync(notesDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, notesDir),
+  filename: (req, file, cb) => {
+    const unique = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    // Decode the original filename properly for Chinese characters
+    const origName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    cb(null, unique + '_' + origName);
+  }
+});
+const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
+
+app.get('/api/notes', authMiddleware, (req, res) => {
+  const notes = db.prepare('SELECT * FROM notes WHERE user_id=? ORDER BY created_at DESC').all(req.user.id);
+  res.json(notes);
+});
+
+app.post('/api/notes', authMiddleware, upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '请选择文件' });
+  const origName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+  const result = db.prepare('INSERT INTO notes (user_id,filename,original_name,file_size) VALUES (?,?,?,?)')
+    .run(req.user.id, req.file.filename, origName, req.file.size);
+  res.json({ id: result.lastInsertRowid, message: '笔记上传成功' });
+});
+
+app.get('/api/notes/:id/download', authMiddleware, (req, res) => {
+  const note = db.prepare('SELECT * FROM notes WHERE id=? AND user_id=?').get(req.params.id, req.user.id);
+  if (!note) return res.status(404).json({ error: '笔记不存在' });
+  const filePath = path.join(notesDir, note.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+  res.download(filePath, note.original_name);
+});
+
+app.delete('/api/notes/:id', authMiddleware, (req, res) => {
+  const note = db.prepare('SELECT * FROM notes WHERE id=? AND user_id=?').get(req.params.id, req.user.id);
+  if (!note) return res.status(404).json({ error: '笔记不存在' });
+  const filePath = path.join(notesDir, note.filename);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  db.prepare('DELETE FROM notes WHERE id=?').run(req.params.id);
+  res.json({ message: '笔记已删除' });
 });
 
 // ── Fallback to SPA ──────────────────────────────────────────
