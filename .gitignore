@@ -1,6 +1,6 @@
 node_modules/
 data.db
-*.db-journal
+*.db-*
 .no_autoseed
 public/uploads/notes/*
 public/uploads/pdf_cache/*
