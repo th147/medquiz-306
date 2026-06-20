@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<meta name="description" content="西医综合306考研智能刷题平台，包含历年真题、章节练习、自我评估等功能">
-<meta name="author" content="medquiz-306">
+<meta name="description" content="一研为定 · 考研智能刷题平台，包含历年真题、章节练习、自我评估等功能">
+<meta name="author" content="yiyanweiding">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'">
-<title>西医综合306 · 智能刷题平台</title>
+<title>一研为定 · 智能刷题平台</title>
 <style>
 /* ── Ocean Depths Medical Theme ── */
 :root {
@@ -125,22 +125,51 @@ body{
 
 /* ── Tab Nav ── */
 .tab-nav{
-  display:flex;background:var(--white);border-bottom:1px solid var(--border);
-  position:sticky;top:56px;z-index:99;overflow-x:auto;
-  box-shadow:0 1px 4px rgba(0,0,0,.03);
+  display:flex;background:var(--white);
+  position:fixed;bottom:0;left:0;right:0;z-index:99;
+  box-shadow:0 -2px 16px rgba(0,0,0,.08);
+  padding:0;border-top:1px solid var(--border);
+  justify-content:space-around;
 }
 .tab-nav button{
-  flex:1;min-width:80px;padding:14px 12px;border:none;background:none;
-  font-size:14px;color:var(--text-light);cursor:pointer;white-space:nowrap;
-  border-bottom:3px solid transparent;transition:var(--transition);
-  font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;
+  flex:1;max-width:80px;padding:8px 0 6px;border:none;background:none;
+  font-size:11px;color:var(--text-light);cursor:pointer;
+  font-family:inherit;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;
+  transition:var(--transition);position:relative;
+  -webkit-tap-highlight-color:transparent;
 }
-.tab-nav button svg{width:18px;height:18px;opacity:.6}
-.tab-nav button.active{color:var(--teal);border-bottom-color:var(--teal);font-weight:600}
+.tab-nav button svg{width:22px;height:22px;opacity:.5;transition:var(--transition)}
+.tab-nav button .tab-dot{
+  width:4px;height:4px;border-radius:50%;position:absolute;top:4px;
+  transition:var(--transition);opacity:0;
+}
+.tab-nav button.active{font-weight:700}
 .tab-nav button.active svg{opacity:1}
+.tab-nav button.active .tab-dot{opacity:1}
+/* Tab 0: 题库 - blue */
+.tab-nav button[data-tab="bank"] .tab-dot{background:#4A90D9}
+.tab-nav button[data-tab="bank"].active{color:#4A90D9}
+.tab-nav button[data-tab="bank"].active svg{color:#4A90D9}
+/* Tab 1: 刷题 - green */
+.tab-nav button[data-tab="quiz"] .tab-dot{background:#27AE60}
+.tab-nav button[data-tab="quiz"].active{color:#27AE60}
+.tab-nav button[data-tab="quiz"].active svg{color:#27AE60}
+/* Tab 2: 薄弱点 - orange */
+.tab-nav button[data-tab="stats"] .tab-dot{background:#E67E22}
+.tab-nav button[data-tab="stats"].active{color:#E67E22}
+.tab-nav button[data-tab="stats"].active svg{color:#E67E22}
+/* Tab 3: 笔记 - purple */
+.tab-nav button[data-tab="notes"] .tab-dot{background:#8E44AD}
+.tab-nav button[data-tab="notes"].active{color:#8E44AD}
+.tab-nav button[data-tab="notes"].active svg{color:#8E44AD}
+/* Tab 4: 管理 - red */
+.tab-nav button[data-tab="admin"] .tab-dot{background:#E74C3C}
+.tab-nav button[data-tab="admin"].active{color:#E74C3C}
+.tab-nav button[data-tab="admin"].active svg{color:#E74C3C}
 
 /* ── Main Content ── */
-.main-content{padding:20px;max-width:960px;margin:0 auto;width:100%;padding-bottom:40px}
+.main-content{padding:16px 20px 80px;max-width:960px;margin:0 auto;width:100%}
 
 /* ── Cards ── */
 .card{
@@ -383,8 +412,9 @@ body{
   font-size:13px;font-weight:700;margin-bottom:14px;letter-spacing:0.5px;
 }
 @media(min-width:768px){
-  .main-content{padding:28px;padding-bottom:48px}
-  .tab-nav button{font-size:15px;padding:16px}
+  .main-content{padding:24px 28px 90px}
+  .tab-nav button{font-size:12px;max-width:100px;padding:10px 0 8px}
+  .tab-nav button svg{width:24px;height:24px}
   .stat-box .num{font-size:36px}
   .quiz-question{font-size:17px}
 }
@@ -424,7 +454,7 @@ body.no-screenshot img {
   background: linear-gradient(90deg, #c0392b, #e74c3c, #c0392b);
   color: #fff; text-align: center; padding: 8px 16px;
   font-size: 13px; font-weight: 700; letter-spacing: 1px;
-  position: sticky; top: 56px; z-index: 98;
+  position: sticky; top: 56px; z-index: 97;
   animation: securityPulse 2s ease-in-out infinite;
 }
 @keyframes securityPulse{
@@ -500,7 +530,7 @@ body.no-screenshot img {
     <div class="logo-icon">
       <svg viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#1a2332"/><path d="M14 24c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10" stroke="#a8dadc" stroke-width="2.5" stroke-linecap="round"/><circle cx="24" cy="24" r="4" fill="#2d8b8b"/><path d="M24 34v4M20 38h8" stroke="#a8dadc" stroke-width="2" stroke-linecap="round"/></svg>
     </div>
-    <h2 id="authTitle">西医综合 306 智能刷题</h2>
+    <h2 id="authTitle">一研为定 · 智能刷题</h2>
     <p class="subtitle" id="authSubtitle">登录你的账号开始学习</p>
 
     <div class="field" id="nicknameField" style="display:none">
@@ -533,7 +563,7 @@ body.no-screenshot img {
   <header class="topbar">
     <div class="brand">
       <svg viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="7" fill="#2d8b8b"/><path d="M7 14c0-3.9 3.1-7 7-7s7 3.1 7 7-3.1 7-7 7" stroke="#a8dadc" stroke-width="1.8" stroke-linecap="round"/><circle cx="14" cy="14" r="2.5" fill="#f1faee"/></svg>
-      西医综合306
+      一研为定
     </div>
     <div class="user-area">
       <span id="displayNickname" style="font-size:13px"></span>
@@ -547,24 +577,29 @@ body.no-screenshot img {
 
   <nav class="tab-nav" id="tabNav">
     <button data-tab="bank" class="active">
-      <svg viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h6M6 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="tab-dot"></span>
+      <svg viewBox="0 0 22 22" fill="none"><rect x="2" y="2" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M7 8h8M7 11h6M7 14h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
       题库
     </button>
     <button data-tab="quiz">
-      <svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M7 9l1.5 1.5 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="tab-dot"></span>
+      <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M8.5 11l1.5 1.5 3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       刷题
     </button>
     <button data-tab="stats">
-      <svg viewBox="0 0 18 18" fill="none"><rect x="2" y="9" width="3" height="7" rx="1" fill="currentColor" opacity=".4"/><rect x="7.5" y="5" width="3" height="11" rx="1" fill="currentColor" opacity=".7"/><rect x="13" y="2" width="3" height="14" rx="1" fill="currentColor"/></svg>
+      <span class="tab-dot"></span>
+      <svg viewBox="0 0 22 22" fill="none"><rect x="2" y="11" width="3.5" height="9" rx="1" fill="currentColor" opacity=".4"/><rect x="9.25" y="5" width="3.5" height="15" rx="1" fill="currentColor" opacity=".7"/><rect x="16.5" y="2" width="3.5" height="18" rx="1" fill="currentColor"/></svg>
       薄弱点
     </button>
-    <button data-tab="admin" id="adminTab" style="display:none">
-      <svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="7" r="2" fill="currentColor"/><path d="M5 14c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      管理
-    </button>
     <button data-tab="notes">
-      <svg viewBox="0 0 18 18" fill="none"><rect x="3" y="1" width="12" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 5h6M6 8h6M6 11h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <span class="tab-dot"></span>
+      <svg viewBox="0 0 22 22" fill="none"><rect x="3.5" y="1.5" width="15" height="19" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 6h8M7 9.5h8M7 13h5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
       笔记
+    </button>
+    <button data-tab="admin" id="adminTab" style="display:none">
+      <span class="tab-dot"></span>
+      <svg viewBox="0 0 22 22" fill="none"><circle cx="11" cy="7" r="3" fill="currentColor"/><path d="M5 18c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      管理
     </button>
   </nav>
 
@@ -661,7 +696,7 @@ async function api(url, opts={}) {
 // ── Auth ──
 function toggleAuthMode() {
   authMode = authMode === 'login' ? 'register' : 'login';
-  document.getElementById('authTitle').textContent = authMode === 'login' ? '西医综合 306 智能刷题' : '注册新账号';
+  document.getElementById('authTitle').textContent = authMode === 'login' ? '一研为定 · 智能刷题' : '注册新账号';
   document.getElementById('authSubtitle').textContent = authMode === 'login' ? '登录你的账号开始学习' : '使用激活码创建账号';
   document.getElementById('authBtn').textContent = authMode === 'login' ? '登 录' : '注 册';
   document.getElementById('switchLabel').textContent = authMode === 'login' ? '还没有账号？' : '已有账号？';

@@ -345,7 +345,7 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n  🩺 西医综合306 刷题平台已启动`);
+  console.log(`\n  一研为定 · 智能刷题平台已启动`);
   console.log(`  📍 http://localhost:${PORT}`);
   console.log(`  👤 管理员账号: admin / admin306`);
   console.log(`  🔑 默认激活码: ${defaultCodes.join(', ')}\n`);
