@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <meta name="description" content="一研为定 · 考研智能刷题平台，包含历年真题、章节练习、自我评估等功能">
 <meta name="author" content="yiyanweiding">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self' https://docs.google.com">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self' blob:; worker-src 'self' blob:">
 <title>一研为定 · 智能刷题平台</title>
 <style>
 /* ── 医考帮风格 活力配色 ── */
@@ -791,10 +791,20 @@ body.no-screenshot img {
       <span>加载中...</span>
     </div>
     <iframe id="viewerFrame" style="display:none" allowfullscreen></iframe>
+    <div id="pdfViewer" style="display:none;width:100%;height:100%;overflow-y:auto;background:#525659;text-align:center">
+      <canvas id="pdfCanvas" style="max-width:100%;height:auto;margin:0 auto"></canvas>
+      <div id="pdfControls" style="display:flex;align-items:center;justify-content:center;gap:12px;padding:10px;background:rgba(0,0,0,.6);position:absolute;bottom:0;left:0;right:0;z-index:1">
+        <button onclick="pdfPrevPage()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">&lt;</button>
+        <span id="pdfPageInfo" style="color:#fff;font-size:13px">1/1</span>
+        <button onclick="pdfNextPage()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">&gt;</button>
+      </div>
+    </div>
   </div>
 </div>
 
+<script src="/js/pdf.min.js"></script>
 <script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js';
 // ── State ──
 const API = '';
 let token = localStorage.getItem('medquiz_token');
@@ -807,6 +817,7 @@ let quizState = null;
 let authMode = 'login';
 let regAvatarFile = null;
 let notesCache = [];
+let pdfState = null; // { pdfDoc, currentPage, totalPages }
 
 // ── Helpers ──
 function showToast(msg, type='') {
@@ -1785,11 +1796,31 @@ async function viewNote(id) {
   document.getElementById('viewerModal').classList.remove('hidden');
   const frame = document.getElementById('viewerFrame');
   const loading = document.getElementById('viewerLoading');
-  frame.style.display = 'none';
-  frame.srcdoc = '';
+  const pdfViewer = document.getElementById('pdfViewer');
+  frame.style.display = 'none'; frame.src = '';
+  pdfViewer.style.display = 'none';
   loading.style.display = '';
 
-  // Images: fetch as blob → blob URL → iframe (no download dialog)
+  // PDF: use PDF.js canvas renderer (no download dialog, works everywhere)
+  if (ext === 'pdf') {
+    try {
+      pdfState = null;
+      const resp = await fetch(API + '/api/notes/' + id + '/view?token=' + token);
+      if (!resp.ok) throw new Error('服务器返回 ' + resp.status);
+      const arrayBuf = await resp.arrayBuffer();
+      const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+      pdfState = { pdfDoc, currentPage: 1, totalPages: pdfDoc.numPages };
+      document.getElementById('pdfControls').style.display = pdfDoc.numPages > 1 ? 'flex' : 'none';
+      await renderPdfPage(1);
+      loading.style.display = 'none';
+      pdfViewer.style.display = '';
+    } catch(e) {
+      loading.innerHTML = '<div style="text-align:center;color:#fff;padding:40px"><p>PDF加载失败</p><p style="font-size:12px;color:#aaa;margin-top:8px">' + e.message + '</p></div>';
+    }
+    return;
+  }
+
+  // Images: fetch as blob → blob URL → iframe
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
     try {
       const resp = await fetch(API + '/api/notes/' + id + '/view?token=' + token);
@@ -1803,7 +1834,7 @@ async function viewNote(id) {
     return;
   }
 
-  // Text: fetch content → srcdoc (no download dialog)
+  // Text: fetch content → srcdoc
   if (['txt', 'md'].includes(ext)) {
     try {
       const resp = await fetch(API + '/api/notes/' + id + '/view?token=' + token);
@@ -1817,10 +1848,33 @@ async function viewNote(id) {
     return;
   }
 
-  // PDF/Word: Google Docs Viewer via /view redirect (server handles the redirect)
+  // Word: Google Docs Viewer
   frame.onload = () => { loading.style.display = 'none'; frame.style.display = ''; };
-  frame.onerror = () => { loading.innerHTML = '<div style="text-align:center"><p>预览加载失败</p><p style="font-size:12px;color:#aaa">Google Docs 可能被网络限制，请联系管理员下载查看</p></div>'; };
+  frame.onerror = () => { loading.innerHTML = '<div style="text-align:center;color:#fff;padding:40px"><p>预览加载失败</p><p style="font-size:12px;color:#aaa;margin-top:8px">Word文档暂不支持直接预览，请联系管理员下载</p></div>'; };
   frame.src = API + '/api/notes/' + id + '/view?token=' + token;
+}
+
+async function renderPdfPage(pageNum) {
+  if (!pdfState) return;
+  const canvas = document.getElementById('pdfCanvas');
+  const page = await pdfState.pdfDoc.getPage(pageNum);
+  const viewport = page.getViewport({ scale: 1.5 });
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  pdfState.currentPage = pageNum;
+  document.getElementById('pdfPageInfo').textContent = pageNum + '/' + pdfState.totalPages;
+}
+
+function pdfPrevPage() {
+  if (!pdfState || pdfState.currentPage <= 1) return;
+  renderPdfPage(pdfState.currentPage - 1);
+}
+
+function pdfNextPage() {
+  if (!pdfState || pdfState.currentPage >= pdfState.totalPages) return;
+  renderPdfPage(pdfState.currentPage + 1);
 }
 
 function closeViewer() {
@@ -1829,7 +1883,9 @@ function closeViewer() {
   frame.src = '';
   frame.srcdoc = '';
   frame.style.display = 'none';
+  document.getElementById('pdfViewer').style.display = 'none';
   document.getElementById('viewerLoading').style.display = '';
+  pdfState = null;
 }
 
 function downloadNote(id) {
