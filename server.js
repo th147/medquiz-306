@@ -88,10 +88,35 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now','localtime')),
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
+  CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    question_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (question_id) REFERENCES questions(id)
+  );
+  CREATE TABLE IF NOT EXISTS comment_likes (
+    user_id INTEGER NOT NULL,
+    comment_id INTEGER NOT NULL,
+    PRIMARY KEY (user_id, comment_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE
+  );
+  CREATE TABLE IF NOT EXISTS comment_favorites (
+    user_id INTEGER NOT NULL,
+    comment_id INTEGER NOT NULL,
+    PRIMARY KEY (user_id, comment_id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE
+  );
 `);
 
 // ── Migration: add year column if missing ──
 try { db.exec('ALTER TABLE questions ADD COLUMN year TEXT DEFAULT \'\''); } catch(e) { /* already exists */ }
+// ── Migration: add avatar column if missing ──
+try { db.exec('ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT \'\''); } catch(e) { /* already exists */ }
 
 // Seed default admin & activation codes
 const seedAdmin = db.prepare('INSERT OR IGNORE INTO users (username, password_hash, is_admin, activation_code, nickname) VALUES (?,?,1,?,?)');
@@ -158,8 +183,8 @@ app.post('/api/auth/login', (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user) return res.status(401).json({error:'用户名或密码错误'});
   if (!bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({error:'用户名或密码错误'});
-  const token = jwt.sign({ id:user.id, username:user.username, is_admin:!!user.is_admin, nickname:user.nickname }, JWT_SECRET, { expiresIn:'30d' });
-  res.json({ token, user:{ id:user.id, username:user.username, is_admin:!!user.is_admin, nickname:user.nickname } });
+  const token = jwt.sign({ id:user.id, username:user.username, is_admin:!!user.is_admin, nickname:user.nickname, avatar:user.avatar||'' }, JWT_SECRET, { expiresIn:'30d' });
+  res.json({ token, user:{ id:user.id, username:user.username, is_admin:!!user.is_admin, nickname:user.nickname, avatar:user.avatar||'' } });
 });
 
 app.post('/api/auth/register', (req, res) => {
@@ -181,8 +206,8 @@ app.post('/api/auth/register', (req, res) => {
 
   db.prepare('UPDATE activation_codes SET is_used=1, used_by=? WHERE code=?').run(username, activationCode.toUpperCase());
 
-  const token = jwt.sign({ id:result.lastInsertRowid, username, is_admin:false, nickname:nickname||username }, JWT_SECRET, { expiresIn:'30d' });
-  res.json({ token, user:{ id:result.lastInsertRowid, username, is_admin:false, nickname:nickname||username } });
+  const token = jwt.sign({ id:result.lastInsertRowid, username, is_admin:false, nickname:nickname||username, avatar:'' }, JWT_SECRET, { expiresIn:'30d' });
+  res.json({ token, user:{ id:result.lastInsertRowid, username, is_admin:false, nickname:nickname||username, avatar:'' } });
 });
 
 // ── Question Routes ──────────────────────────────────────────
@@ -337,6 +362,92 @@ app.delete('/api/notes/:id', authMiddleware, (req, res) => {
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   db.prepare('DELETE FROM notes WHERE id=?').run(req.params.id);
   res.json({ message: '笔记已删除' });
+});
+
+// ── User Profile & Avatar ────────────────────────────────────
+const avatarDir = path.join(__dirname, 'public', 'uploads', 'avatars');
+if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
+
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, avatarDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(Buffer.from(file.originalname, 'latin1').toString('utf8')) || '.png';
+    cb(null, 'avatar_' + req.user.id + '_' + Date.now() + ext);
+  }
+});
+const avatarUpload = multer({ storage: avatarStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+app.post('/api/user/avatar', authMiddleware, avatarUpload.single('avatar'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '请选择图片' });
+  const avatarUrl = '/uploads/avatars/' + req.file.filename;
+  db.prepare('UPDATE users SET avatar=? WHERE id=?').run(avatarUrl, req.user.id);
+  res.json({ avatar: avatarUrl, message: '头像已更新' });
+});
+
+app.put('/api/user/profile', authMiddleware, (req, res) => {
+  const { nickname } = req.body;
+  if (nickname) {
+    db.prepare('UPDATE users SET nickname=? WHERE id=?').run(nickname, req.user.id);
+  }
+  const user = db.prepare('SELECT * FROM users WHERE id=?').get(req.user.id);
+  const token = jwt.sign({ id:user.id, username:user.username, is_admin:!!user.is_admin, nickname:user.nickname, avatar:user.avatar||'' }, JWT_SECRET, { expiresIn:'30d' });
+  res.json({ token, user:{ id:user.id, username:user.username, is_admin:!!user.is_admin, nickname:user.nickname, avatar:user.avatar||'' } });
+});
+
+// ── Comments ─────────────────────────────────────────────────
+app.get('/api/questions/:id/comments', authMiddleware, (req, res) => {
+  const comments = db.prepare(`
+    SELECT c.*, u.nickname, u.avatar,
+      (SELECT COUNT(*) FROM comment_likes WHERE comment_id=c.id) as like_count,
+      (SELECT COUNT(*) FROM comment_favorites WHERE comment_id=c.id) as fav_count,
+      (SELECT COUNT(*) FROM comment_likes WHERE comment_id=c.id AND user_id=?) as liked,
+      (SELECT COUNT(*) FROM comment_favorites WHERE comment_id=c.id AND user_id=?) as favorited
+    FROM comments c
+    JOIN users u ON c.user_id = u.id
+    WHERE c.question_id = ?
+    ORDER BY c.created_at DESC
+  `).all(req.user.id, req.user.id, req.params.id);
+  res.json(comments);
+});
+
+app.post('/api/questions/:id/comments', authMiddleware, (req, res) => {
+  const { content } = req.body;
+  if (!content || !content.trim()) return res.status(400).json({ error: '评论内容不能为空' });
+  if (content.length > 2000) return res.status(400).json({ error: '评论不能超过2000字' });
+  const result = db.prepare('INSERT INTO comments (user_id,question_id,content) VALUES (?,?,?)')
+    .run(req.user.id, req.params.id, content.trim());
+  const comment = db.prepare('SELECT c.*, u.nickname, u.avatar FROM comments c JOIN users u ON c.user_id=u.id WHERE c.id=?').get(result.lastInsertRowid);
+  res.json({ ...comment, like_count: 0, fav_count: 0, liked: 0, favorited: 0 });
+});
+
+app.delete('/api/comments/:id', authMiddleware, (req, res) => {
+  const comment = db.prepare('SELECT * FROM comments WHERE id=?').get(req.params.id);
+  if (!comment) return res.status(404).json({ error: '评论不存在' });
+  if (comment.user_id !== req.user.id && !req.user.is_admin) return res.status(403).json({ error: '无权删除' });
+  db.prepare('DELETE FROM comments WHERE id=?').run(req.params.id);
+  res.json({ message: '评论已删除' });
+});
+
+app.post('/api/comments/:id/like', authMiddleware, (req, res) => {
+  const existing = db.prepare('SELECT * FROM comment_likes WHERE user_id=? AND comment_id=?').get(req.user.id, req.params.id);
+  if (existing) {
+    db.prepare('DELETE FROM comment_likes WHERE user_id=? AND comment_id=?').run(req.user.id, req.params.id);
+    res.json({ liked: false, message: '已取消点赞' });
+  } else {
+    db.prepare('INSERT INTO comment_likes (user_id,comment_id) VALUES (?,?)').run(req.user.id, req.params.id);
+    res.json({ liked: true, message: '已点赞' });
+  }
+});
+
+app.post('/api/comments/:id/favorite', authMiddleware, (req, res) => {
+  const existing = db.prepare('SELECT * FROM comment_favorites WHERE user_id=? AND comment_id=?').get(req.user.id, req.params.id);
+  if (existing) {
+    db.prepare('DELETE FROM comment_favorites WHERE user_id=? AND comment_id=?').run(req.user.id, req.params.id);
+    res.json({ favorited: false, message: '已取消收藏' });
+  } else {
+    db.prepare('INSERT INTO comment_favorites (user_id,comment_id) VALUES (?,?)').run(req.user.id, req.params.id);
+    res.json({ favorited: true, message: '已收藏' });
+  }
 });
 
 // ── Fallback to SPA ──────────────────────────────────────────
