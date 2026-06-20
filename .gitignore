@@ -1,4 +1,10 @@
 node_modules/
 data.db
-data.db-shm
-data.db-wal
+*.db-journal
+.no_autoseed
+public/uploads/notes/*
+public/uploads/pdf_cache/*
+public/uploads/avatars/*
+!public/uploads/notes/.gitkeep
+!public/uploads/pdf_cache/.gitkeep
+!public/uploads/avatars/.gitkeep
