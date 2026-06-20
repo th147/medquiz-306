@@ -1698,7 +1698,8 @@ async function loadNotes() {
         <div class="note-name">${n.original_name||n.filename}</div>
         <div class="note-meta">${sizeStr} · ${dateStr}</div>
         <div class="note-actions">
-          <button class="btn btn-outline btn-sm" onclick="downloadNote(${n.id})">下载</button>
+          <button class="btn btn-teal btn-sm" onclick="viewNote(${n.id})">在线查看</button>
+          ${user.is_admin ? `<button class="btn btn-outline btn-sm" onclick="downloadNote(${n.id})">下载</button>` : `<button class="btn btn-outline btn-sm" onclick="requestDownload()">申请下载</button>`}
           ${user.is_admin ? `<button class="btn btn-red btn-sm" onclick="deleteNote(${n.id})">删除</button>` : ''}
         </div>
       </div>`;
@@ -1735,10 +1736,18 @@ function uploadNote() {
   input.click();
 }
 
+function viewNote(id) {
+  window.open(API + '/api/notes/' + id + '/view?token=' + token, '_blank');
+}
+
 function downloadNote(id) {
   const a = document.createElement('a');
   a.href = API + '/api/notes/' + id + '/download?token=' + token;
   a.click();
+}
+
+function requestDownload() {
+  showToast('请联系管理员（一研为定）申请下载权限', 'error');
 }
 
 async function deleteNote(id) {

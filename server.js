@@ -347,7 +347,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 app.get('/api/notes', authMiddleware, (req, res) => {
-  const notes = db.prepare('SELECT * FROM notes WHERE user_id=? ORDER BY created_at DESC').all(req.user.id);
+  const notes = db.prepare('SELECT * FROM notes ORDER BY created_at DESC').all();
   res.json(notes);
 });
 
@@ -359,12 +359,47 @@ app.post('/api/notes', authMiddleware, adminMiddleware, upload.single('file'), (
   res.json({ id: result.lastInsertRowid, message: '笔记上传成功' });
 });
 
-app.get('/api/notes/:id/download', authMiddleware, (req, res) => {
-  const note = db.prepare('SELECT * FROM notes WHERE id=? AND user_id=?').get(req.params.id, req.user.id);
-  if (!note) return res.status(404).json({ error: '笔记不存在' });
-  const filePath = path.join(notesDir, note.filename);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
-  res.download(filePath, note.original_name);
+// Inline view (any logged-in user, supports token in query param)
+app.get('/api/notes/:id/view', (req, res) => {
+  try {
+    const token = req.query.token;
+    if (!token) return res.status(401).json({ error: '未登录' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const note = db.prepare('SELECT * FROM notes WHERE id=?').get(req.params.id);
+    if (!note) return res.status(404).json({ error: '笔记不存在' });
+    const filePath = path.join(notesDir, note.filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+    const ext = path.extname(note.original_name).toLowerCase();
+    const mimeMap = {
+      '.pdf': 'application/pdf', '.doc': 'application/msword',
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.txt': 'text/plain', '.md': 'text/markdown',
+      '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif', '.webp': 'image/webp'
+    };
+    res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', 'inline; filename="' + encodeURIComponent(note.original_name) + '"');
+    fs.createReadStream(filePath).pipe(res);
+  } catch(e) {
+    return res.status(401).json({ error: '登录已过期' });
+  }
+});
+
+// Download (admin only, supports token in query param)
+app.get('/api/notes/:id/download', (req, res) => {
+  try {
+    const token = req.query.token;
+    if (!token) return res.status(401).json({ error: '未登录' });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (!decoded.is_admin) return res.status(403).json({ error: '仅管理员可下载，请联系管理员申请权限' });
+    const note = db.prepare('SELECT * FROM notes WHERE id=?').get(req.params.id);
+    if (!note) return res.status(404).json({ error: '笔记不存在' });
+    const filePath = path.join(notesDir, note.filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+    res.download(filePath, note.original_name);
+  } catch(e) {
+    return res.status(401).json({ error: '登录已过期' });
+  }
 });
 
 app.delete('/api/notes/:id', authMiddleware, (req, res) => {
