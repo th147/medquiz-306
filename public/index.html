@@ -603,28 +603,6 @@ body.no-screenshot img {
 .comment-delete{font-size:11px;color:var(--text-light);cursor:pointer;margin-left:auto;background:none;border:none;font-family:inherit;padding:2px 6px;border-radius:8px;transition:var(--transition)}
 .comment-delete:hover{background:var(--red-bg);color:var(--red)}
 
-/* ── Viewer Modal ── */
-.viewer-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;
-  display:flex;flex-direction:column;animation:fadeIn .2s;
-}
-.viewer-toolbar{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 16px;background:var(--white);flex-shrink:0;
-}
-.viewer-toolbar .viewer-title{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:12px}
-.viewer-toolbar .btn-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-light);padding:4px 8px;border-radius:8px;line-height:1}
-.viewer-toolbar .btn-close:hover{background:var(--bg);color:var(--red)}
-.viewer-body{flex:1;overflow:hidden;background:#525659}
-.viewer-body iframe{width:100%;height:100%;border:none;background:#fff}
-.viewer-loading{
-  display:flex;align-items:center;justify-content:center;height:100%;
-  flex-direction:column;gap:12px;color:#fff;font-size:14px;
-}
-.viewer-loading .spinner{
-  width:36px;height:36px;border:3px solid rgba(255,255,255,.3);
-  border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;
-}
 </style>
 </head>
 <body>
@@ -779,29 +757,6 @@ body.no-screenshot img {
   </div>
 </div>
 
-<!-- Viewer Modal -->
-<div id="viewerModal" class="modal-overlay hidden" style="background:rgba(0,0,0,.85)">
-  <div class="viewer-toolbar">
-    <span class="viewer-title" id="viewerTitle">笔记预览</span>
-    <button class="btn-close" onclick="closeViewer()">&times;</button>
-  </div>
-  <div class="viewer-body">
-    <div class="viewer-loading" id="viewerLoading">
-      <div class="spinner"></div>
-      <span>加载中...</span>
-    </div>
-    <iframe id="viewerFrame" style="display:none" allowfullscreen></iframe>
-    <div id="pdfViewer" style="display:none;width:100%;height:100%;overflow-y:auto;background:#525659">
-      <div id="pdfPages" style="text-align:center"></div>
-      <div id="pdfControls" style="display:none;align-items:center;justify-content:center;gap:12px;padding:10px 0 20px;position:sticky;bottom:0;background:rgba(0,0,0,.6);z-index:1">
-        <button onclick="pdfPrevPage()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">上一页</button>
-        <span id="pdfPageInfo" style="color:#fff;font-size:13px">1/1</span>
-        <button onclick="pdfNextPage()" style="background:rgba(255,255,255,.2);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;font-family:inherit">下一页</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
 // ── State ──
 const API = '';
@@ -815,7 +770,6 @@ let quizState = null;
 let authMode = 'login';
 let regAvatarFile = null;
 let notesCache = [];
-let pdfState = null; // { currentPage, totalPages, noteId }
 
 // ── Helpers ──
 function showToast(msg, type='') {
@@ -1785,105 +1739,11 @@ function uploadNote() {
   input.click();
 }
 
-async function viewNote(id) {
+function viewNote(id) {
   const note = notesCache.find(n => n.id === id);
   const title = note ? note.original_name : '笔记预览';
-  const ext = (title || '').split('.').pop().toLowerCase();
-
-  document.getElementById('viewerTitle').textContent = title;
-  document.getElementById('viewerModal').classList.remove('hidden');
-  const frame = document.getElementById('viewerFrame');
-  const loading = document.getElementById('viewerLoading');
-  const pdfViewer = document.getElementById('pdfViewer');
-  frame.style.display = 'none'; frame.src = '';
-  pdfViewer.style.display = 'none';
-  loading.style.display = '';
-
-  // PDF: server-side render → PNG images (never triggers download)
-  if (ext === 'pdf') {
-    try {
-      const countResp = await fetch(API + '/api/notes/' + id + '/pages/count?token=' + token);
-      const countData = await countResp.json();
-      const totalPages = countData.pages || 1;
-      pdfState = { currentPage: 1, totalPages: totalPages, noteId: id };
-      document.getElementById('pdfControls').style.display = totalPages > 1 ? 'flex' : 'none';
-      document.getElementById('pdfPageInfo').textContent = '1/' + totalPages;
-      loading.style.display = 'none';
-      pdfViewer.style.display = '';
-      await loadPdfPage(1);
-    } catch(e) {
-      loading.innerHTML = '<div style="text-align:center;color:#fff;padding:40px"><p>PDF加载失败</p><p style="font-size:12px;color:#aaa;margin-top:8px">' + (e.message || '未知错误') + '</p></div>';
-    }
-    return;
-  }
-
-  // Images: fetch as blob → blob URL → iframe
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
-    try {
-      const resp = await fetch(API + '/api/notes/' + id + '/view?token=' + token);
-      const blob = await resp.blob();
-      const url = URL.createObjectURL(blob);
-      frame.onload = () => { loading.style.display = 'none'; frame.style.display = ''; };
-      frame.src = url;
-    } catch(e) {
-      loading.innerHTML = '加载失败: ' + e.message;
-    }
-    return;
-  }
-
-  // Text: fetch content → srcdoc
-  if (['txt', 'md'].includes(ext)) {
-    try {
-      const resp = await fetch(API + '/api/notes/' + id + '/view?token=' + token);
-      const text = await resp.text();
-      frame.srcdoc = `<html><head><meta charset="utf-8"><style>body{font-family:system-ui,sans-serif;padding:20px;line-height:1.8;white-space:pre-wrap;word-break:break-word;font-size:15px;background:#fff;color:#333}</style></head><body>${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</body></html>`;
-      loading.style.display = 'none';
-      frame.style.display = '';
-    } catch(e) {
-      loading.innerHTML = '加载失败: ' + e.message;
-    }
-    return;
-  }
-
-  // Word: Google Docs Viewer
-  frame.onload = () => { loading.style.display = 'none'; frame.style.display = ''; };
-  frame.onerror = () => { loading.innerHTML = '<div style="text-align:center;color:#fff;padding:40px"><p>预览加载失败</p><p style="font-size:12px;color:#aaa;margin-top:8px">Word文档暂不支持直接预览，请联系管理员下载</p></div>'; };
-  frame.src = API + '/api/notes/' + id + '/view?token=' + token;
-}
-
-async function loadPdfPage(pageNum) {
-  if (!pdfState) return;
-  const container = document.getElementById('pdfPages');
-  const img = document.createElement('img');
-  img.src = API + '/api/notes/' + pdfState.noteId + '/pages/' + pageNum + '?token=' + token;
-  img.style.cssText = 'max-width:100%;height:auto;display:block;margin:0 auto;box-shadow:0 4px 20px rgba(0,0,0,.3)';
-  img.alt = '第 ' + pageNum + ' 页';
-  container.innerHTML = '';
-  container.appendChild(img);
-  pdfState.currentPage = pageNum;
-  document.getElementById('pdfPageInfo').textContent = pageNum + '/' + pdfState.totalPages;
-  document.getElementById('pdfViewer').scrollTop = 0;
-}
-
-function pdfPrevPage() {
-  if (!pdfState || pdfState.currentPage <= 1) return;
-  loadPdfPage(pdfState.currentPage - 1);
-}
-
-function pdfNextPage() {
-  if (!pdfState || pdfState.currentPage >= pdfState.totalPages) return;
-  loadPdfPage(pdfState.currentPage + 1);
-}
-
-function closeViewer() {
-  document.getElementById('viewerModal').classList.add('hidden');
-  const frame = document.getElementById('viewerFrame');
-  frame.src = '';
-  frame.srcdoc = '';
-  frame.style.display = 'none';
-  document.getElementById('pdfViewer').style.display = 'none';
-  document.getElementById('viewerLoading').style.display = '';
-  pdfState = null;
+  const url = '/viewer.html?id=' + id + '&token=' + encodeURIComponent(token) + '&name=' + encodeURIComponent(title);
+  window.open(url, '_blank');
 }
 
 function downloadNote(id) {
