@@ -118,6 +118,30 @@ db.exec(`
 try { db.exec('ALTER TABLE questions ADD COLUMN year TEXT DEFAULT \'\''); } catch(e) { /* already exists */ }
 // ── Migration: add avatar column if missing ──
 try { db.exec('ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT \'\''); } catch(e) { /* already exists */ }
+// ── Migration: add pages column to notes if missing ──
+try { db.exec('ALTER TABLE notes ADD COLUMN pages INTEGER DEFAULT 0'); } catch(e) { /* already exists */ }
+
+// ── PDF pre-conversion cache ─────────────────────────────────
+const pdfCacheDir = path.join(__dirname, 'public', 'uploads', 'pdf_cache');
+if (!fs.existsSync(pdfCacheDir)) fs.mkdirSync(pdfCacheDir, { recursive: true });
+
+function convertPdfPages(noteId, pdfPath) {
+  const cacheDir = path.join(pdfCacheDir, 'note_' + noteId);
+  if (fs.existsSync(cacheDir)) {
+    const existing = fs.readdirSync(cacheDir).filter(f => f.endsWith('.png')).length;
+    if (existing > 0) return existing; // already cached
+  }
+  if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+  // Convert all pages at once with -png flag
+  try {
+    execSync(`pdftoppm -png -r 150 "${pdfPath}" "${cacheDir}/page"`, { timeout: 120000 });
+    const count = fs.readdirSync(cacheDir).filter(f => f.endsWith('.png')).length;
+    return count;
+  } catch(e) {
+    console.error('PDF conversion failed:', e.message);
+    return 0;
+  }
+}
 
 // Seed default admin & activation codes
 const seedAdmin = db.prepare('INSERT OR IGNORE INTO users (username, password_hash, is_admin, activation_code, nickname) VALUES (?,?,1,?,?)');
@@ -357,7 +381,17 @@ app.post('/api/notes', authMiddleware, adminMiddleware, upload.single('file'), (
   const origName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
   const result = db.prepare('INSERT INTO notes (user_id,filename,original_name,file_size) VALUES (?,?,?,?)')
     .run(req.user.id, req.file.filename, origName, req.file.size);
-  res.json({ id: result.lastInsertRowid, message: '笔记上传成功' });
+  const noteId = result.lastInsertRowid;
+  // Pre-convert PDF pages on upload
+  const ext = path.extname(origName).toLowerCase();
+  if (ext === '.pdf') {
+    const pdfPath = path.join(notesDir, req.file.filename);
+    const pages = convertPdfPages(noteId, pdfPath);
+    db.prepare('UPDATE notes SET pages=? WHERE id=?').run(pages, noteId);
+    res.json({ id: noteId, pages, message: `笔记上传成功，已预转换 ${pages} 页` });
+  } else {
+    res.json({ id: noteId, message: '笔记上传成功' });
+  }
 });
 
 // Inline view (any logged-in user, supports token in query param)
@@ -533,7 +567,7 @@ app.post('/api/comments/:id/favorite', authMiddleware, (req, res) => {
   }
 });
 
-// ── PDF Page Images (server-side rendering via pdftoppm) ────
+// ── PDF Page Images (pre-converted on upload, served instantly) ──
 app.get('/api/notes/:id/pages/count', (req, res) => {
   try {
     const token = req.query.token;
@@ -543,12 +577,18 @@ app.get('/api/notes/:id/pages/count', (req, res) => {
     if (!note) return res.status(404).json({ error: '笔记不存在' });
     const ext = path.extname(note.original_name).toLowerCase();
     if (ext !== '.pdf') return res.json({ pages: 0 });
+    // Check cache dir first (fast path)
+    const cacheDir = path.join(pdfCacheDir, 'note_' + note.id);
+    if (fs.existsSync(cacheDir)) {
+      const count = fs.readdirSync(cacheDir).filter(f => f.endsWith('.png')).length;
+      if (count > 0) return res.json({ pages: count });
+    }
+    // Fallback: use stored pages or convert now
+    if (note.pages > 0) return res.json({ pages: note.pages });
     const filePath = path.join(notesDir, note.filename);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
-
-    const info = execSync(`pdfinfo "${filePath}" 2>/dev/null | grep Pages | awk '{print $2}'`, { timeout: 5000 }).toString().trim();
-    const pages = parseInt(info) || 1;
-    if (isNaN(pages) || pages < 1) return res.json({ pages: 1 });
+    if (!fs.existsSync(filePath)) return res.json({ pages: 0 });
+    const pages = convertPdfPages(note.id, filePath);
+    db.prepare('UPDATE notes SET pages=? WHERE id=?').run(pages, note.id);
     res.json({ pages });
   } catch(e) {
     res.json({ pages: 1 });
@@ -564,29 +604,31 @@ app.get('/api/notes/:id/pages/:pageNum', (req, res) => {
     if (!note) return res.status(404).json({ error: '笔记不存在' });
     const ext = path.extname(note.original_name).toLowerCase();
     if (ext !== '.pdf') return res.status(400).json({ error: '仅支持PDF' });
-    const filePath = path.join(notesDir, note.filename);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
 
     const pageNum = parseInt(req.params.pageNum);
     if (isNaN(pageNum) || pageNum < 1) return res.status(400).json({ error: '页码无效' });
 
-    // Use pdftoppm to convert single page to PNG
-    const tmpDir = '/tmp/pdf_pages';
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-    const prefix = 'note_' + note.id + '_p' + pageNum + '_' + Date.now();
-    execSync(`pdftoppm -png -f ${pageNum} -l ${pageNum} -r 150 "${filePath}" "${tmpDir}/${prefix}"`, { timeout: 15000 });
-    
-    const imgFile = fs.readdirSync(tmpDir).find(f => f.startsWith(prefix));
-    if (!imgFile) return res.status(500).json({ error: 'PDF转换失败' });
-    
-    const imgPath = path.join(tmpDir, imgFile);
+    // Serve from cache (instant)
+    const cacheDir = path.join(pdfCacheDir, 'note_' + note.id);
+    if (!fs.existsSync(cacheDir)) {
+      // Fallback: convert on the fly
+      const filePath = path.join(notesDir, note.filename);
+      if (!fs.existsSync(filePath)) return res.status(404).json({ error: '文件不存在' });
+      convertPdfPages(note.id, filePath);
+    }
+    // pdftoppm names files as page-01.png, page-02.png, etc.
+    const padded = String(pageNum).padStart(2, '0');
+    let imgFile = path.join(cacheDir, `page-${padded}.png`);
+    if (!fs.existsSync(imgFile)) {
+      // Try without padding
+      const alt = path.join(cacheDir, `page-${pageNum}.png`);
+      if (fs.existsSync(alt)) imgFile = alt;
+      else return res.status(404).json({ error: '页面不存在' });
+    }
+
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    const stream = fs.createReadStream(imgPath);
-    stream.on('end', () => {
-      try { fs.unlinkSync(imgPath); } catch(e) {}
-    });
-    stream.pipe(res);
+    res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+    fs.createReadStream(imgFile).pipe(res);
   } catch(e) {
     return res.status(500).json({ error: 'PDF处理失败: ' + e.message });
   }
